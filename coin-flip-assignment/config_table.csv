@@ -1,0 +1,12 @@
+Input,Value
+p_success_1,60%
+p_success_2,50%
+p_success_3,50%
+p_success_4,50%
+p_success_5,50%
+max_successes,5
+points_success_1,1
+points_success_2,2
+points_success_3,4
+points_success_4,8
+points_success_5,16
