@@ -178,6 +178,16 @@ st.subheader("Key Performance Indicators")
 kpi_display = _build_kpi_display(result)
 render_kpi_cards(kpi_display, columns=4)
 
+# ---- CSV Download --------------------------------------------------------
+
+csv_data = result.to_dataframe().write_csv()
+st.download_button(
+    "Download Results CSV",
+    csv_data,
+    "simulation_results.csv",
+    "text/csv",
+)
+
 st.markdown("---")
 
 # ---- Section 2: Success Distribution Chart --------------------------------

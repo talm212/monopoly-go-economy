@@ -7,6 +7,7 @@ import streamlit as st
 
 from src.domain.models.coin_flip import CoinFlipConfig, CoinFlipResult
 from src.domain.simulators.coin_flip import CoinFlipSimulator
+from src.infrastructure.store.local_store import LocalSimulationStore
 from src.ui.components.kpi_cards import render_kpi_cards
 
 logger = logging.getLogger(__name__)
@@ -120,6 +121,20 @@ if run_clicked:
             result.total_interactions,
             result.total_points,
         )
+
+        # Auto-save to simulation history
+        try:
+            store = LocalSimulationStore()
+            store.save_run({
+                "feature": "coin_flip",
+                "config": config.to_dict(),
+                "result_summary": result.to_summary_dict(),
+                "distribution": result.get_distribution(),
+            })
+            logger.info("Simulation run auto-saved to history")
+        except Exception:
+            logger.exception("Failed to auto-save simulation run to history")
+
         st.success(
             f"Simulation complete — {result.total_interactions:,} interactions "
             f"across {player_data.height:,} players."
