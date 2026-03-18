@@ -1,6 +1,6 @@
 # Monopoly Go Economy
 
-Economy simulation platform for Monopoly Go game mechanics. Built for the economy team to simulate, analyze, and tune game features at scale (1M+ players).
+Economy simulation platform for Monopoly Go game mechanics. Built for the economy team to simulate, analyze, and tune game features at scale (1M+ players) with AI-powered insights.
 
 ## Quick Start
 
@@ -8,16 +8,19 @@ Economy simulation platform for Monopoly Go game mechanics. Built for the econom
 # Install dependencies
 poetry install
 
-# Run tests
+# Run tests (259 tests)
 poetry run pytest
 
-# Run coin flip simulation (after Feature #8)
-poetry run simulate --input coin-flip-assignment/input_table.csv \
-                    --config coin-flip-assignment/config_table.csv \
-                    --threshold 100
+# Run coin flip simulation via CLI
+poetry run python -m src.cli coin-flip-assignment/input_table.csv \
+                              coin-flip-assignment/config_table.csv \
+                              --threshold 100 --seed 42
 
-# Run Streamlit dashboard (after Feature #9)
+# Run Streamlit dashboard
 poetry run streamlit run src/ui/app.py
+
+# Docker
+docker compose up
 ```
 
 ## Tech Stack
@@ -25,10 +28,34 @@ poetry run streamlit run src/ui/app.py
 | Layer | Technology |
 |-------|-----------|
 | Simulation Engine | Python 3.12+, NumPy (vectorized RNG), Polars (data processing) |
-| Dashboard | Streamlit (multi-page, self-service) |
-| AI | Claude via Bedrock (prod) / Anthropic API (dev) |
-| Infrastructure | AWS CDK (Python) — ECS Fargate, S3, DynamoDB |
-| Testing | pytest with TDD workflow |
+| Dashboard | Streamlit (multi-page: upload, run, results, AI insights, history) |
+| AI | Claude via Bedrock (prod) / Anthropic API (dev) — insights, chat, optimizer |
+| Infrastructure | AWS CDK (Python) — VPC, ECS Fargate, ALB, S3, DynamoDB, Secrets Manager |
+| Testing | pytest (259 tests), TDD workflow, 100K players in ~2s |
+
+## Features
+
+### Coin Flip Simulator
+- Vectorized NumPy engine processing 1M+ players in <10 seconds
+- Configurable probabilities, point values, churn boost (1.3x, capped at 1.0)
+- CLI with threshold, seed, and output options
+
+### Streamlit Dashboard
+- Upload player data + config CSVs
+- Run simulations with optional seed
+- KPI cards, success distribution charts, points histograms
+- Churn vs non-churn comparison
+- CSV export, simulation history, run comparison
+
+### AI Features
+- **Insights Analyst** — auto-analyzes results, generates findings + recommendations
+- **Chat Assistant** — natural language Q&A about simulation data
+- **Config Optimizer** — iterative LLM + simulation loop to hit target outcomes
+
+### AWS Infrastructure (CDK)
+- VPC (2 AZs), ECS Fargate + ALB, S3, DynamoDB
+- Secrets Manager, SSM Parameters, CloudWatch alarms
+- Docker multi-stage build with health checks
 
 ## Project Structure
 
@@ -36,13 +63,59 @@ poetry run streamlit run src/ui/app.py
 src/
 ├── domain/            # Pure business logic (no I/O)
 │   ├── protocols.py   # SimulatorConfig, SimulationResult, Simulator interfaces
-│   ├── models/        # Data models (CoinFlipConfig, etc.)
-│   └── simulators/    # Simulation engines + registry
-├── application/       # Use cases (RunSimulation, AnalyzeResults, etc.)
-├── infrastructure/    # I/O (Polars CSV, S3, LLM clients, DynamoDB)
-└── ui/                # Streamlit dashboard
-tests/                 # Mirrors src/ structure
-infra/                 # AWS CDK stacks
+│   ├── models/        # CoinFlipConfig, CoinFlipResult, Insight, OptimizationTarget
+│   └── simulators/    # CoinFlipSimulator + SimulatorRegistry
+├── application/       # Use cases
+│   ├── run_simulation.py    # Generic orchestrator (works with any simulator)
+│   ├── analyze_results.py   # AI insights analyst
+│   ├── chat_assistant.py    # AI chat Q&A
+│   └── optimize_config.py   # AI config optimizer
+├── infrastructure/    # I/O boundary
+│   ├── readers/       # LocalDataReader (Polars CSV)
+│   ├── writers/       # LocalDataWriter
+│   ├── llm/           # LLMClient protocol + Anthropic/Bedrock adapters
+│   └── store/         # LocalSimulationStore (JSON files)
+├── ui/                # Streamlit dashboard
+│   ├── app.py         # Entry point
+│   ├── components/    # Reusable: upload, config editor, KPIs, charts, chat panel
+│   └── pages/         # Upload, Run, Results, AI Insights, History
+└── cli.py             # CLI entrypoint
+tests/                 # 259 tests mirroring src/
+infra/                 # AWS CDK stacks (network, data, compute, pipeline)
+```
+
+## Architecture
+
+See [docs/plans/2026-03-19-system-design.md](docs/plans/2026-03-19-system-design.md) for full HLD + LLD.
+
+**Key principle:** Protocol-based and reusable. Adding a new game feature requires only:
+1. Implement `Simulator` protocol (config + result + engine)
+2. Register in `SimulatorRegistry`
+3. Add one Streamlit page
+
+Everything else (I/O, orchestration, AI, dashboard components) works automatically.
+
+## Development
+
+```bash
+poetry run pytest              # Run all 259 tests
+poetry run pytest --cov        # With coverage report
+poetry run pytest -m unit      # Unit tests only
+poetry run pytest -m slow      # Performance tests
+poetry run mypy src/           # Type checking
+poetry run ruff check src/     # Linting
+poetry run ruff format src/    # Format
+```
+
+## AI Setup
+
+```bash
+# Local dev — Anthropic API
+export ANTHROPIC_API_KEY=your-key
+export LLM_PROVIDER=anthropic
+
+# Production — AWS Bedrock (no API key needed, uses IAM)
+export LLM_PROVIDER=bedrock
 ```
 
 ## Local Claude Code Setup
@@ -52,36 +125,8 @@ After cloning, install these local-only tools:
 ```bash
 # Streamlit skills (17 sub-skills for dashboard development)
 cd .claude/skills && git clone https://github.com/streamlit/agent-skills.git streamlit
-
-# AutoForge commands (if using autoforge)
-# These ship with the autoforge npm package — no manual install needed
-```
-
-## Architecture
-
-See [docs/plans/2026-03-19-system-design.md](docs/plans/2026-03-19-system-design.md) for full system design.
-
-**Key principle:** Every component is protocol-based and reusable. Adding a new game feature (loot tables, reward distributions) requires only implementing the `Simulator` protocol and one Streamlit page. Everything else (I/O, orchestration, AI, dashboard components) works automatically.
-
-## Development
-
-```bash
-# Run all tests
-poetry run pytest
-
-# Run with coverage
-poetry run pytest --cov
-
-# Type checking
-poetry run mypy src/
-
-# Linting
-poetry run ruff check src/
-
-# Format
-poetry run ruff format src/
 ```
 
 ## Feature Tracking
 
-Features are tracked in [AutoForge](https://github.com/AutoForgeAI/autoforge). See `PROJECT.md` for the full feature breakdown (23 features, 5 phases).
+All 23 features tracked in [AutoForge](https://github.com/AutoForgeAI/autoforge). See `PROJECT.md` for details.
