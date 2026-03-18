@@ -1,7 +1,7 @@
 # Monopoly Go Economy — Project Details
 
 > **Living document.** Updated every time changes are made to the project.
-> Last updated: 2026-03-19
+> Last updated: 2026-03-19 (Feature #14: Docker containerization)
 
 ---
 
@@ -154,7 +154,7 @@ Everything else works automatically: I/O, orchestration, dashboard components, A
 ### Phase 4: AWS Infrastructure (5 features)
 | ID | Feature | Status | Depends On |
 |----|---------|--------|------------|
-| 14 | Docker containerization | Blocked | 8, 13 |
+| 14 | Docker containerization | Complete | 8, 13 |
 | 15 | CDK base stack (VPC, ECR) | Blocked | 14 |
 | 16 | Data stack (S3, DynamoDB) | Blocked | 15 |
 | 17 | Compute stack (Fargate + ALB) | Blocked | 15, 16 |
@@ -206,6 +206,7 @@ Everything else works automatically: I/O, orchestration, dashboard components, A
 | 001 | 2026-03-19 | Design Log Setup | Complete |
 | 002 | 2026-03-19 | Architecture & Tooling | Complete |
 | 003 | 2026-03-19 | System Design & Project Planning | Complete |
+| 014 | 2026-03-19 | Docker Containerization | Complete |
 
 ## Documents
 

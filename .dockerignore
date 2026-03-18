@@ -1,0 +1,64 @@
+# Version control
+.git
+.gitignore
+
+# Python artifacts
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+dist
+build
+
+# Testing
+.pytest_cache
+.mypy_cache
+.coverage
+htmlcov
+
+# Virtual environments
+.venv
+venv
+env
+
+# Non-production directories
+tests/
+design-logs/
+docs/
+coin-flip-assignment/
+infra/
+
+# Tool / IDE configuration
+.claude/
+.autoforge/
+.idea/
+.vscode/
+
+# Simulation outputs
+.simulation_history/
+output/
+
+# Documentation (not needed in image)
+*.md
+!README.md
+
+# Environment / secrets
+.env
+.env.*
+credentials.json
+*.auth-state.json
+rootkey.csv
+
+# AWS CDK artifacts
+cdk.out/
+cdk.context.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker config
+.docker/
+Dockerfile
+docker-compose.yml
+.dockerignore

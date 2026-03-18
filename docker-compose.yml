@@ -1,0 +1,15 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8501:8501"
+    environment:
+      - LLM_PROVIDER=anthropic
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    volumes:
+      - ./coin-flip-assignment:/app/coin-flip-assignment:ro
+      - simulation_history:/app/.simulation_history
+    restart: unless-stopped
+
+volumes:
+  simulation_history:
