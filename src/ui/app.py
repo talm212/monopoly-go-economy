@@ -10,16 +10,18 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Sidebar
+# Sidebar branding — page links are auto-generated from src/ui/pages/
 st.sidebar.title("Economy Simulator")
 st.sidebar.markdown("---")
-st.sidebar.markdown("### Navigation")
-# Pages will be added as features are built
+st.sidebar.markdown(
+    "Use the navigation above to switch between pages."
+)
 
+# Home page content
 st.title("Monopoly Go Economy Simulator")
 st.markdown("Welcome to the economy simulation platform. Use the sidebar to navigate.")
 st.markdown("### Quick Start")
-st.markdown("1. **Upload** player data and config CSVs")
-st.markdown("2. **Configure** simulation parameters")
-st.markdown("3. **Run** the simulation")
-st.markdown("4. **Analyze** results with AI insights")
+st.markdown("1. **Upload & Configure** — upload player data and config CSVs")
+st.markdown("2. **Run Simulation** — execute the coin-flip simulation")
+st.markdown("3. **Results** — view KPIs, distributions, and per-player data")
+st.markdown("4. **AI Insights** — get AI-generated analysis of your results")
