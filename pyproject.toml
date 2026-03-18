@@ -1,0 +1,65 @@
+[tool.poetry]
+name = "monopoly-go-economy"
+version = "0.1.0"
+description = "Economy simulation platform for Monopoly Go game mechanics"
+authors = ["Economy Team"]
+readme = "README.md"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+polars = "^1.0"
+numpy = "^2.0"
+pydantic = "^2.0"
+streamlit = "^1.40"
+anthropic = "^0.40"
+boto3 = "^1.35"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+pytest-cov = "^6.0"
+pytest-asyncio = "^0.24"
+mypy = "^1.10"
+ruff = "^0.8"
+
+[tool.poetry.group.infra.dependencies]
+aws-cdk-lib = "^2.170"
+constructs = "^10.0"
+
+[tool.poetry.scripts]
+simulate = "src.cli:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "unit: pure logic tests (no I/O)",
+    "integration: tests with I/O boundaries",
+    "slow: tests that take >5 seconds",
+]
+addopts = "--strict-markers -v"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "TCH"]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["src/ui/*"]
+
+[tool.coverage.report]
+fail_under = 70
+show_missing = true
