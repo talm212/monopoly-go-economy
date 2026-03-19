@@ -18,7 +18,6 @@ from src.domain.simulators.coin_flip import CoinFlipSimulator
 from src.infrastructure.readers.local_reader import LocalDataReader
 from src.infrastructure.writers.local_writer import LocalDataWriter
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -340,7 +339,7 @@ class TestReaderErrors:
         """FileNotFoundError from reader propagates to caller."""
         use_case = RunSimulationUseCase(reader=reader, simulator=simulator)
 
-        with pytest.raises(Exception):
+        with pytest.raises((FileNotFoundError, OSError)):
             use_case.execute(
                 player_source="/nonexistent/path/players.csv",
                 config=coin_flip_config,
@@ -358,8 +357,9 @@ class TestGenericDesign:
 
     def test_use_case_module_has_no_coin_flip_imports(self) -> None:
         """The run_simulation module does not import any coin-flip classes."""
-        import src.application.run_simulation as mod
         import inspect
+
+        import src.application.run_simulation as mod
 
         source = inspect.getsource(mod)
         assert "CoinFlip" not in source

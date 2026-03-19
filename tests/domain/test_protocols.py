@@ -24,7 +24,6 @@ from src.domain.protocols import (
 )
 from src.domain.simulators.registry import SimulatorRegistry
 
-
 # ---------------------------------------------------------------------------
 # Stub implementations for protocol conformance testing
 # ---------------------------------------------------------------------------

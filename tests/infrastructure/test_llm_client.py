@@ -18,7 +18,6 @@ from src.infrastructure.llm.anthropic_adapter import AnthropicAdapter
 from src.infrastructure.llm.bedrock_adapter import BedrockAdapter
 from src.infrastructure.llm.client import LLMClient, get_llm_client
 
-
 # ---------------------------------------------------------------------------
 # Protocol conformance tests
 # ---------------------------------------------------------------------------

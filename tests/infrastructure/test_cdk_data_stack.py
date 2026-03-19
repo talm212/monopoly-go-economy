@@ -15,7 +15,6 @@ from aws_cdk.assertions import Match, Template
 
 from infra.stacks.data_stack import DataStack
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

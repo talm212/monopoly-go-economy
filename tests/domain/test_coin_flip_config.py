@@ -16,7 +16,6 @@ import pytest
 from src.domain.models.coin_flip import CoinFlipConfig
 from src.domain.protocols import SimulatorConfig
 
-
 # ---------------------------------------------------------------------------
 # Construction & validation
 # ---------------------------------------------------------------------------

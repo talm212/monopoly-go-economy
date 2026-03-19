@@ -11,7 +11,6 @@ import pytest
 
 from src.infrastructure.store.local_store import LocalSimulationStore
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

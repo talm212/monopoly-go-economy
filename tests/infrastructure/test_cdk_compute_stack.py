@@ -20,7 +20,6 @@ from infra.stacks.compute_stack import ComputeStack
 from infra.stacks.data_stack import DataStack
 from infra.stacks.network_stack import NetworkStack
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

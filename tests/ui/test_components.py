@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from src.ui.components.kpi_cards import _format_value
 from src.ui.components.config_editor import _is_percentage, _parse_percentage
-
+from src.ui.components.kpi_cards import _format_value
 
 # ---------------------------------------------------------------------------
 # _format_value (kpi_cards)

@@ -14,7 +14,6 @@ import polars as pl
 import pytest
 from click.testing import CliRunner
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -325,9 +324,9 @@ class TestSummaryContent:
 
         lines = result.output.strip().split("\n")
         # First three lines should be the summary metrics
-        interactions_line = [l for l in lines if "Total interactions" in l]
-        points_line = [l for l in lines if "Total points" in l]
-        threshold_line = [l for l in lines if "Players above threshold" in l]
+        interactions_line = [line for line in lines if "Total interactions" in line]
+        points_line = [line for line in lines if "Total points" in line]
+        threshold_line = [line for line in lines if "Players above threshold" in line]
 
         assert len(interactions_line) == 1
         assert len(points_line) == 1

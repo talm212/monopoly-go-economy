@@ -16,7 +16,6 @@ import pytest
 from src.application.analyze_results import SYSTEM_PROMPT, InsightsAnalyst
 from src.domain.models.insight import Insight, Severity
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

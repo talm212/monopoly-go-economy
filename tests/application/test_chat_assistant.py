@@ -12,8 +12,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from src.application.chat_assistant import SYSTEM_PROMPT, ChatAssistant, Message
-
+from src.application.chat_assistant import ChatAssistant, Message
 
 # ---------------------------------------------------------------------------
 # Fixtures

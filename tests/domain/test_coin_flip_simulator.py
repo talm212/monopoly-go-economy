@@ -20,10 +20,9 @@ import numpy as np
 import polars as pl
 import pytest
 
-from src.domain.models.coin_flip import CoinFlipConfig, CoinFlipResult
+from src.domain.models.coin_flip import CoinFlipConfig
 from src.domain.protocols import SimulationResult, Simulator
 from src.domain.simulators.coin_flip import CoinFlipSimulator
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -176,7 +175,7 @@ class TestCoinFlipSimulatorChurnBoost:
 
     def test_churn_players_get_higher_average_points(self) -> None:
         """Run with enough players so statistical effect is clear."""
-        rng = np.random.default_rng(seed=123)
+        np.random.default_rng(seed=123)
         n = 5000
         players = pl.DataFrame(
             {

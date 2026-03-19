@@ -19,7 +19,6 @@ from infra.stacks.data_stack import DataStack
 from infra.stacks.network_stack import NetworkStack
 from infra.stacks.pipeline_stack import PipelineStack
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
