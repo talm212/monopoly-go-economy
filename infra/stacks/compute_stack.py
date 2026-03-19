@@ -12,6 +12,7 @@ from aws_cdk import (
     CfnOutput,
     aws_ec2 as ec2,
     aws_ecr as ecr,
+    aws_ecr_assets,
     aws_ecs as ecs,
     aws_ecs_patterns as ecs_patterns,
     aws_dynamodb as dynamodb,
@@ -67,7 +68,10 @@ class ComputeStack(cdk.Stack):
             memory_limit_mib=_TASK_MEMORY_MIB,
             desired_count=_DESIRED_COUNT,
             task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
-                image=ecs.ContainerImage.from_asset("."),
+                image=ecs.ContainerImage.from_asset(
+                    ".",
+                    platform=cdk.aws_ecr_assets.Platform.LINUX_AMD64,
+                ),
                 container_port=_CONTAINER_PORT,
                 environment={
                     "DATA_BUCKET_NAME": data_bucket.bucket_name,

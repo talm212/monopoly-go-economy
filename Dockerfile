@@ -1,26 +1,25 @@
-# Stage 1: Builder — export dependencies from poetry
+# Stage 1: Builder — install dependencies with poetry
 FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
-# Install poetry
 RUN pip install --no-cache-dir poetry==2.2.1
 
-# Copy only dependency files first (maximizes Docker layer cache)
+# Copy dependency files first (maximizes Docker layer cache)
 COPY pyproject.toml poetry.lock ./
 
-# Export production dependencies to requirements.txt
-# Avoids needing poetry in the runtime image
-RUN poetry export -f requirements.txt --without dev --without infra -o requirements.txt
+# Install production dependencies into a virtual env
+RUN poetry config virtualenvs.in-project true && \
+    poetry install --only main --no-root --no-interaction --no-ansi
 
 # Stage 2: Runtime — lean production image
 FROM python:3.12-slim AS runtime
 
 WORKDIR /app
 
-# Install only production dependencies
-COPY --from=builder /app/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy virtual env from builder
+COPY --from=builder /app/.venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Copy source code
 COPY src/ ./src/
@@ -28,9 +27,8 @@ COPY src/ ./src/
 # Copy Streamlit theme configuration
 COPY .streamlit/ ./.streamlit/
 
-# Streamlit server configuration for containerized environment
-RUN mkdir -p /app/.streamlit && \
-    printf '[server]\nheadless = true\nport = 8501\naddress = "0.0.0.0"\nenableCORS = false\n\n[browser]\ngatherUsageStats = false\n' \
+# Streamlit server config for containerized environment
+RUN printf '[server]\nheadless = true\nport = 8501\naddress = "0.0.0.0"\nenableCORS = false\n\n[browser]\ngatherUsageStats = false\n' \
     > /app/.streamlit/server.toml
 
 EXPOSE 8501
