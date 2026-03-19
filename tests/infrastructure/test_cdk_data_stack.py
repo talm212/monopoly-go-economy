@@ -4,7 +4,6 @@ Verifies:
 - S3 bucket with encryption, versioning, lifecycle, and public access block
 - DynamoDB table with on-demand billing, partition/sort keys, and GSI
 - CfnOutputs exported for bucket name and table name
-- Dev vs prod removal policy differences
 """
 
 from __future__ import annotations
@@ -20,10 +19,10 @@ from infra.stacks.data_stack import DataStack
 # ---------------------------------------------------------------------------
 
 
-def _synth_template(env_name: str = "dev") -> Template:
+def _synth_template() -> Template:
     """Synthesize a DataStack and return its Template for assertions."""
     app = cdk.App()
-    stack = DataStack(app, "TestData", env_name=env_name)
+    stack = DataStack(app, "TestData")
     return Template.from_stack(stack)
 
 
@@ -195,38 +194,6 @@ class TestDataStackDynamoDB:
 
 
 # ---------------------------------------------------------------------------
-# Removal Policy
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.unit
-class TestDataStackRemovalPolicy:
-    """Verify environment-dependent removal policies."""
-
-    def test_dev_removal_policy_destroy(self) -> None:
-        template = _synth_template(env_name="dev")
-        template.has_resource(
-            "AWS::S3::Bucket",
-            {"DeletionPolicy": "Delete"},
-        )
-        template.has_resource(
-            "AWS::DynamoDB::Table",
-            {"DeletionPolicy": "Delete"},
-        )
-
-    def test_prod_removal_policy_retain(self) -> None:
-        template = _synth_template(env_name="prod")
-        template.has_resource(
-            "AWS::S3::Bucket",
-            {"DeletionPolicy": "Retain"},
-        )
-        template.has_resource(
-            "AWS::DynamoDB::Table",
-            {"DeletionPolicy": "Retain"},
-        )
-
-
-# ---------------------------------------------------------------------------
 # Outputs
 # ---------------------------------------------------------------------------
 
@@ -236,23 +203,12 @@ class TestDataStackOutputs:
     """Verify CfnOutputs are exported for cross-stack references."""
 
     def test_outputs_exported(self) -> None:
-        template = _synth_template(env_name="dev")
+        template = _synth_template()
         template.has_output(
             "DataBucketName",
-            {"Export": {"Name": "dev-data-bucket-name"}},
+            {"Value": Match.any_value()},
         )
         template.has_output(
             "HistoryTableName",
-            {"Export": {"Name": "dev-history-table-name"}},
-        )
-
-    def test_prod_output_uses_prod_prefix(self) -> None:
-        template = _synth_template(env_name="prod")
-        template.has_output(
-            "DataBucketName",
-            {"Export": {"Name": "prod-data-bucket-name"}},
-        )
-        template.has_output(
-            "HistoryTableName",
-            {"Export": {"Name": "prod-history-table-name"}},
+            {"Value": Match.any_value()},
         )

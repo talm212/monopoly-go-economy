@@ -24,11 +24,11 @@ from infra.stacks.pipeline_stack import PipelineStack
 # ---------------------------------------------------------------------------
 
 
-def _synth_template(env_name: str = "dev") -> Template:
+def _synth_template() -> Template:
     """Synthesize a PipelineStack with its dependencies and return the Template."""
     app = cdk.App()
-    network = NetworkStack(app, "Network", env_name=env_name)
-    data = DataStack(app, "Data", env_name=env_name)
+    network = NetworkStack(app, "Network")
+    data = DataStack(app, "Data")
     compute = ComputeStack(
         app,
         "Compute",
@@ -36,13 +36,11 @@ def _synth_template(env_name: str = "dev") -> Template:
         ecr_repo=network.ecr_repo,
         data_bucket=data.data_bucket,
         history_table=data.history_table,
-        env_name=env_name,
     )
     stack = PipelineStack(
         app,
         "Pipeline",
         fargate_service=compute.fargate_service,
-        env_name=env_name,
     )
     return Template.from_stack(stack)
 
@@ -66,16 +64,7 @@ class TestPipelineStackSecrets:
             "AWS::SecretsManager::Secret",
             {
                 "Description": "Anthropic API key for AI features",
-                "Name": "/dev/monopoly-economy/anthropic-api-key",
-            },
-        )
-
-    def test_secret_name_uses_env_prefix(self) -> None:
-        template = _synth_template(env_name="prod")
-        template.has_resource_properties(
-            "AWS::SecretsManager::Secret",
-            {
-                "Name": "/prod/monopoly-economy/anthropic-api-key",
+                "Name": "/monopoly-economy/anthropic-api-key",
             },
         )
 
@@ -98,7 +87,7 @@ class TestPipelineStackSsmParameters:
         template.has_resource_properties(
             "AWS::SSM::Parameter",
             {
-                "Name": "/dev/monopoly-economy/llm-provider",
+                "Name": "/monopoly-economy/llm-provider",
                 "Value": "bedrock",
                 "Type": "String",
             },
@@ -109,7 +98,7 @@ class TestPipelineStackSsmParameters:
         template.has_resource_properties(
             "AWS::SSM::Parameter",
             {
-                "Name": "/dev/monopoly-economy/reward-threshold",
+                "Name": "/monopoly-economy/reward-threshold",
                 "Value": "100",
                 "Type": "String",
             },
@@ -120,7 +109,7 @@ class TestPipelineStackSsmParameters:
         template.has_resource_properties(
             "AWS::SSM::Parameter",
             {
-                "Name": "/dev/monopoly-economy/churn-boost",
+                "Name": "/monopoly-economy/churn-boost",
                 "Value": "1.3",
                 "Type": "String",
             },

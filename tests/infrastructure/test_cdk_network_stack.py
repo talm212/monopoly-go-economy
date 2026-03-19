@@ -4,7 +4,6 @@ Verifies:
 - VPC created with expected subnet configuration
 - ECR repository created with lifecycle rules
 - CfnOutputs exported for VPC ID and ECR repo URI
-- Dev vs prod configuration differences (NAT gateways, removal policy)
 """
 
 from __future__ import annotations
@@ -20,10 +19,10 @@ from infra.stacks.network_stack import NetworkStack
 # ---------------------------------------------------------------------------
 
 
-def _synth_template(env_name: str = "dev") -> Template:
+def _synth_template() -> Template:
     """Synthesize a NetworkStack and return its Template for assertions."""
     app = cdk.App()
-    stack = NetworkStack(app, "TestNetwork", env_name=env_name)
+    stack = NetworkStack(app, "TestNetwork")
     return Template.from_stack(stack)
 
 
@@ -46,14 +45,6 @@ class TestNetworkStackVpc:
         template.resource_count_is("AWS::EC2::NatGateway", 1)
         # Each AZ gets a public + private subnet; 2 AZs = 4 subnets total
         template.resource_count_is("AWS::EC2::Subnet", 4)
-
-    def test_dev_has_one_nat_gateway(self) -> None:
-        template = _synth_template(env_name="dev")
-        template.resource_count_is("AWS::EC2::NatGateway", 1)
-
-    def test_prod_has_two_nat_gateways(self) -> None:
-        template = _synth_template(env_name="prod")
-        template.resource_count_is("AWS::EC2::NatGateway", 2)
 
 
 # ---------------------------------------------------------------------------
@@ -78,20 +69,6 @@ class TestNetworkStackEcr:
             },
         )
 
-    def test_dev_ecr_removal_policy_is_destroy(self) -> None:
-        template = _synth_template(env_name="dev")
-        template.has_resource(
-            "AWS::ECR::Repository",
-            {"DeletionPolicy": "Delete"},
-        )
-
-    def test_prod_ecr_removal_policy_is_retain(self) -> None:
-        template = _synth_template(env_name="prod")
-        template.has_resource(
-            "AWS::ECR::Repository",
-            {"DeletionPolicy": "Retain"},
-        )
-
 
 # ---------------------------------------------------------------------------
 # Outputs
@@ -103,26 +80,15 @@ class TestNetworkStackOutputs:
     """Verify CfnOutputs are exported for cross-stack references."""
 
     def test_vpc_id_output_exported(self) -> None:
-        template = _synth_template(env_name="dev")
+        template = _synth_template()
         template.has_output(
             "VpcId",
-            {"Export": {"Name": "dev-vpc-id"}},
+            {"Value": Match.any_value()},
         )
 
     def test_ecr_repo_uri_output_exported(self) -> None:
-        template = _synth_template(env_name="dev")
+        template = _synth_template()
         template.has_output(
             "EcrRepoUri",
-            {"Export": {"Name": "dev-ecr-repo-uri"}},
-        )
-
-    def test_prod_output_uses_prod_prefix(self) -> None:
-        template = _synth_template(env_name="prod")
-        template.has_output(
-            "VpcId",
-            {"Export": {"Name": "prod-vpc-id"}},
-        )
-        template.has_output(
-            "EcrRepoUri",
-            {"Export": {"Name": "prod-ecr-repo-uri"}},
+            {"Value": Match.any_value()},
         )

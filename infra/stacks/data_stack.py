@@ -1,9 +1,4 @@
-"""Data infrastructure stack: S3 bucket and DynamoDB table.
-
-Provides storage for player data, simulation results (S3), and
-simulation run history (DynamoDB) that the compute stack consumes
-via exported outputs.
-"""
+"""Data infrastructure stack: S3 bucket and DynamoDB table."""
 
 from __future__ import annotations
 
@@ -21,37 +16,19 @@ _IA_TRANSITION_DAYS = 30
 
 
 class DataStack(cdk.Stack):
-    """S3 + DynamoDB stack for simulation data and run history.
+    """S3 + DynamoDB stack for simulation data and run history."""
 
-    Args:
-        scope: CDK app or stage that owns this stack.
-        construct_id: Unique stack identifier.
-        env_name: Deployment environment name (e.g. "dev", "prod").
-            Controls removal policies and auto-delete behaviour.
-        **kwargs: Passed through to cdk.Stack (env, description, etc.).
-    """
-
-    def __init__(
-        self,
-        scope: Construct,
-        construct_id: str,
-        *,
-        env_name: str = "dev",
-        **kwargs: object,
-    ) -> None:
+    def __init__(self, scope: Construct, construct_id: str, **kwargs: object) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        is_dev = env_name == "dev"
-
-        # S3 bucket for player data and simulation results
         self.data_bucket = s3.Bucket(
             self,
             "DataBucket",
             encryption=s3.BucketEncryption.S3_MANAGED,
             versioned=True,
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
-            removal_policy=RemovalPolicy.DESTROY if is_dev else RemovalPolicy.RETAIN,
-            auto_delete_objects=is_dev,
+            removal_policy=RemovalPolicy.DESTROY,
+            auto_delete_objects=True,
             lifecycle_rules=[
                 s3.LifecycleRule(
                     transitions=[
@@ -64,7 +41,6 @@ class DataStack(cdk.Stack):
             ],
         )
 
-        # DynamoDB table for simulation run history
         self.history_table = dynamodb.Table(
             self,
             "SimulationHistory",
@@ -75,11 +51,12 @@ class DataStack(cdk.Stack):
                 name="created_at", type=dynamodb.AttributeType.STRING
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
-            point_in_time_recovery=not is_dev,
-            removal_policy=RemovalPolicy.DESTROY if is_dev else RemovalPolicy.RETAIN,
+            point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                point_in_time_recovery_enabled=True,
+            ),
+            removal_policy=RemovalPolicy.DESTROY,
         )
 
-        # GSI for listing runs by feature
         self.history_table.add_global_secondary_index(
             index_name="feature-created-index",
             partition_key=dynamodb.Attribute(
@@ -90,16 +67,5 @@ class DataStack(cdk.Stack):
             ),
         )
 
-        # Cross-stack exports
-        CfnOutput(
-            self,
-            "DataBucketName",
-            value=self.data_bucket.bucket_name,
-            export_name=f"{env_name}-data-bucket-name",
-        )
-        CfnOutput(
-            self,
-            "HistoryTableName",
-            value=self.history_table.table_name,
-            export_name=f"{env_name}-history-table-name",
-        )
+        CfnOutput(self, "DataBucketName", value=self.data_bucket.bucket_name)
+        CfnOutput(self, "HistoryTableName", value=self.history_table.table_name)

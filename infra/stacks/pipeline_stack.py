@@ -57,7 +57,6 @@ class PipelineStack(cdk.Stack):
         construct_id: str,
         *,
         fargate_service: ecs_patterns.ApplicationLoadBalancedFargateService,
-        env_name: str = "dev",
         **kwargs: object,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -67,14 +66,14 @@ class PipelineStack(cdk.Stack):
             self,
             "AnthropicApiKey",
             description="Anthropic API key for AI features",
-            secret_name=f"/{env_name}/monopoly-economy/anthropic-api-key",
+            secret_name=f"/monopoly-economy/anthropic-api-key",
         )
 
         # -- SSM Parameters: non-secret config ---------------------------------
         self.llm_provider_param = ssm.StringParameter(
             self,
             "LlmProvider",
-            parameter_name=f"/{env_name}/monopoly-economy/llm-provider",
+            parameter_name=f"/monopoly-economy/llm-provider",
             string_value=_DEFAULT_LLM_PROVIDER,
             description="LLM provider: bedrock or anthropic",
         )
@@ -82,7 +81,7 @@ class PipelineStack(cdk.Stack):
         self.reward_threshold_param = ssm.StringParameter(
             self,
             "RewardThreshold",
-            parameter_name=f"/{env_name}/monopoly-economy/reward-threshold",
+            parameter_name=f"/monopoly-economy/reward-threshold",
             string_value=_DEFAULT_REWARD_THRESHOLD,
             description="Default reward threshold for simulations",
         )
@@ -90,7 +89,7 @@ class PipelineStack(cdk.Stack):
         self.churn_boost_param = ssm.StringParameter(
             self,
             "ChurnBoost",
-            parameter_name=f"/{env_name}/monopoly-economy/churn-boost",
+            parameter_name=f"/monopoly-economy/churn-boost",
             string_value=_DEFAULT_CHURN_BOOST,
             description="Default churn boost multiplier",
         )
@@ -102,7 +101,7 @@ class PipelineStack(cdk.Stack):
         self.unhealthy_alarm = cloudwatch.Alarm(
             self,
             "UnhealthyTargets",
-            metric=target_group.metric_unhealthy_host_count(),
+            metric=target_group.metrics.unhealthy_host_count(),
             threshold=_UNHEALTHY_THRESHOLD,
             evaluation_periods=_UNHEALTHY_EVAL_PERIODS,
             comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,

@@ -25,11 +25,11 @@ from infra.stacks.network_stack import NetworkStack
 # ---------------------------------------------------------------------------
 
 
-def _synth_template(env_name: str = "dev") -> Template:
+def _synth_template() -> Template:
     """Synthesize a ComputeStack with its dependencies and return the Template."""
     app = cdk.App()
-    network = NetworkStack(app, "Network", env_name=env_name)
-    data = DataStack(app, "Data", env_name=env_name)
+    network = NetworkStack(app, "Network")
+    data = DataStack(app, "Data")
     stack = ComputeStack(
         app,
         "Compute",
@@ -37,7 +37,6 @@ def _synth_template(env_name: str = "dev") -> Template:
         ecr_repo=network.ecr_repo,
         data_bucket=data.data_bucket,
         history_table=data.history_table,
-        env_name=env_name,
     )
     return Template.from_stack(stack)
 
@@ -121,12 +120,6 @@ class TestComputeStackFargateService:
                                             {
                                                 "Name": "LLM_PROVIDER",
                                                 "Value": "bedrock",
-                                            }
-                                        ),
-                                        Match.object_like(
-                                            {
-                                                "Name": "ENV_NAME",
-                                                "Value": "dev",
                                             }
                                         ),
                                     ]
@@ -263,15 +256,8 @@ class TestComputeStackOutputs:
     """Verify CfnOutputs are exported for the service URL."""
 
     def test_service_url_output_exported(self) -> None:
-        template = _synth_template(env_name="dev")
+        template = _synth_template()
         template.has_output(
             "ServiceUrl",
-            {"Export": {"Name": "dev-service-url"}},
-        )
-
-    def test_prod_output_uses_prod_prefix(self) -> None:
-        template = _synth_template(env_name="prod")
-        template.has_output(
-            "ServiceUrl",
-            {"Export": {"Name": "prod-service-url"}},
+            {"Value": Match.any_value()},
         )

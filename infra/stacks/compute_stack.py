@@ -52,7 +52,6 @@ class ComputeStack(cdk.Stack):
         ecr_repo: ecr.IRepository,
         data_bucket: s3.IBucket,
         history_table: dynamodb.ITable,
-        env_name: str = "dev",
         **kwargs: object,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -68,13 +67,12 @@ class ComputeStack(cdk.Stack):
             memory_limit_mib=_TASK_MEMORY_MIB,
             desired_count=_DESIRED_COUNT,
             task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
-                image=ecs.ContainerImage.from_ecr_repository(ecr_repo),
+                image=ecs.ContainerImage.from_asset("."),
                 container_port=_CONTAINER_PORT,
                 environment={
                     "DATA_BUCKET_NAME": data_bucket.bucket_name,
                     "HISTORY_TABLE_NAME": history_table.table_name,
                     "LLM_PROVIDER": "bedrock",
-                    "ENV_NAME": env_name,
                 },
             ),
             public_load_balancer=True,
@@ -107,5 +105,5 @@ class ComputeStack(cdk.Stack):
             self,
             "ServiceUrl",
             value=f"http://{self.fargate_service.load_balancer.load_balancer_dns_name}",
-            export_name=f"{env_name}-service-url",
+            export_name="monopoly-economy-service-url",
         )
