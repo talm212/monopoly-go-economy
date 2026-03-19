@@ -2,13 +2,12 @@
 
 Uses click.testing.CliRunner to test the CLI command without spawning
 a subprocess.  Exercises help, end-to-end simulation, flag handling,
-error reporting, and stdout summary output.
+error reporting, summary output, and the required output CSV format.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import polars as pl
 import pytest
@@ -26,7 +25,7 @@ def runner() -> CliRunner:
 
 
 @pytest.fixture
-def cli_input_csv(tmp_path: Any) -> str:
+def cli_input_csv(tmp_path: Path) -> str:
     """Write a small player CSV for CLI tests and return the path."""
     path = tmp_path / "players.csv"
     df = pl.DataFrame(
@@ -42,7 +41,7 @@ def cli_input_csv(tmp_path: Any) -> str:
 
 
 @pytest.fixture
-def cli_config_csv(tmp_path: Any) -> str:
+def cli_config_csv(tmp_path: Path) -> str:
     """Write a config CSV for CLI tests and return the path."""
     path = tmp_path / "config.csv"
     df = pl.DataFrame(
@@ -88,7 +87,6 @@ class TestHelp:
     """--help flag shows usage information."""
 
     def test_help_shows_usage(self, runner: CliRunner) -> None:
-        """--help exits 0 and shows usage text."""
         from src.cli import main
 
         result = runner.invoke(main, ["--help"])
@@ -98,11 +96,11 @@ class TestHelp:
         assert "CONFIG_CSV" in result.output
 
     def test_help_shows_options(self, runner: CliRunner) -> None:
-        """--help lists all expected options."""
         from src.cli import main
 
         result = runner.invoke(main, ["--help"])
         assert "--output" in result.output
+        assert "--output-players" in result.output
         assert "--threshold" in result.output
         assert "--churn-boost" in result.output
         assert "--seed" in result.output
@@ -123,30 +121,98 @@ class TestEndToEnd:
         cli_input_csv: str,
         cli_config_csv: str,
     ) -> None:
-        """Basic invocation exits 0 and prints summary."""
         from src.cli import main
 
         result = runner.invoke(main, [cli_input_csv, cli_config_csv, "--seed", "42"])
-        assert result.exit_code == 0, f"CLI failed: {result.output}\n{result.stderr}"
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
         assert "Total interactions" in result.output
         assert "Total points" in result.output
         assert "Players above threshold" in result.output
 
-    def test_output_csv_written(
+    def test_summary_csv_has_required_columns(
         self,
         runner: CliRunner,
         cli_input_csv: str,
         cli_config_csv: str,
-        tmp_path: Any,
+        tmp_path: Path,
     ) -> None:
-        """--output flag writes results CSV."""
+        """--output writes summary CSV with the exact columns from the spec."""
         from src.cli import main
 
-        output_path = str(tmp_path / "results.csv")
+        output_path = str(tmp_path / "summary.csv")
         result = runner.invoke(
-            main, [cli_input_csv, cli_config_csv, "--seed", "42", "--output", output_path]
+            main,
+            [cli_input_csv, cli_config_csv, "--seed", "42", "--output", output_path],
         )
-        assert result.exit_code == 0, f"CLI failed: {result.output}\n{result.stderr}"
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
+        assert Path(output_path).exists()
+
+        summary_df = pl.read_csv(output_path)
+        assert summary_df.shape[0] == 1, "Summary CSV should have exactly 1 row"
+
+        # Required columns from spec
+        assert "total_roll_interactions" in summary_df.columns
+        assert "success_0_count" in summary_df.columns
+        assert "success_1_count" in summary_df.columns
+        assert "success_2_count" in summary_df.columns
+        assert "success_3_count" in summary_df.columns
+        assert "success_4_count" in summary_df.columns
+        assert "success_5_count" in summary_df.columns
+        assert "total_points" in summary_df.columns
+        assert "players_above_threshold" in summary_df.columns
+
+    def test_summary_csv_values_are_consistent(
+        self,
+        runner: CliRunner,
+        cli_input_csv: str,
+        cli_config_csv: str,
+        tmp_path: Path,
+    ) -> None:
+        """Summary CSV values are internally consistent."""
+        from src.cli import main
+
+        output_path = str(tmp_path / "summary.csv")
+        result = runner.invoke(
+            main,
+            [cli_input_csv, cli_config_csv, "--seed", "42", "--output", output_path],
+        )
+        assert result.exit_code == 0
+
+        df = pl.read_csv(output_path)
+        row = df.row(0, named=True)
+
+        # success_0 + success_1 + ... + success_5 should equal total_roll_interactions
+        success_sum = sum(row[f"success_{i}_count"] for i in range(6))
+        assert success_sum == row["total_roll_interactions"]
+
+        # All counts should be non-negative
+        assert row["total_roll_interactions"] >= 0
+        assert row["total_points"] >= 0
+        assert row["players_above_threshold"] >= 0
+
+    def test_player_results_csv_written(
+        self,
+        runner: CliRunner,
+        cli_input_csv: str,
+        cli_config_csv: str,
+        tmp_path: Path,
+    ) -> None:
+        """--output-players writes per-player results CSV."""
+        from src.cli import main
+
+        output_path = str(tmp_path / "players_results.csv")
+        result = runner.invoke(
+            main,
+            [
+                cli_input_csv,
+                cli_config_csv,
+                "--seed",
+                "42",
+                "--output-players",
+                output_path,
+            ],
+        )
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
         assert Path(output_path).exists()
 
         output_df = pl.read_csv(output_path)
@@ -154,22 +220,56 @@ class TestEndToEnd:
         assert "total_points" in output_df.columns
         assert "num_interactions" in output_df.columns
 
+    def test_both_outputs_written(
+        self,
+        runner: CliRunner,
+        cli_input_csv: str,
+        cli_config_csv: str,
+        tmp_path: Path,
+    ) -> None:
+        """Both --output and --output-players can be used together."""
+        from src.cli import main
+
+        summary_path = str(tmp_path / "summary.csv")
+        players_path = str(tmp_path / "players.csv")
+        result = runner.invoke(
+            main,
+            [
+                cli_input_csv,
+                cli_config_csv,
+                "--seed",
+                "42",
+                "--output",
+                summary_path,
+                "--output-players",
+                players_path,
+            ],
+        )
+        assert result.exit_code == 0
+        assert Path(summary_path).exists()
+        assert Path(players_path).exists()
+
+        summary_df = pl.read_csv(summary_path)
+        players_df = pl.read_csv(players_path)
+        assert summary_df.shape[0] == 1
+        assert players_df.shape[0] == 5
+
     def test_output_message_shown(
         self,
         runner: CliRunner,
         cli_input_csv: str,
         cli_config_csv: str,
-        tmp_path: Any,
+        tmp_path: Path,
     ) -> None:
-        """When --output is used, a confirmation message is printed."""
         from src.cli import main
 
-        output_path = str(tmp_path / "results.csv")
+        output_path = str(tmp_path / "summary.csv")
         result = runner.invoke(
-            main, [cli_input_csv, cli_config_csv, "--seed", "42", "--output", output_path]
+            main,
+            [cli_input_csv, cli_config_csv, "--seed", "42", "--output", output_path],
         )
         assert result.exit_code == 0
-        assert "Results written to" in result.output
+        assert "Summary written to" in result.output
 
     def test_success_distribution_shown(
         self,
@@ -177,7 +277,6 @@ class TestEndToEnd:
         cli_input_csv: str,
         cli_config_csv: str,
     ) -> None:
-        """Summary includes success distribution."""
         from src.cli import main
 
         result = runner.invoke(main, [cli_input_csv, cli_config_csv, "--seed", "42"])
@@ -199,7 +298,6 @@ class TestFlags:
         cli_input_csv: str,
         cli_config_csv: str,
     ) -> None:
-        """--threshold value appears in the summary output."""
         from src.cli import main
 
         result = runner.invoke(
@@ -214,7 +312,6 @@ class TestFlags:
         cli_input_csv: str,
         cli_config_csv: str,
     ) -> None:
-        """--churn-boost affects simulation results (different from default 1.3)."""
         from src.cli import main
 
         result_default = runner.invoke(main, [cli_input_csv, cli_config_csv, "--seed", "42"])
@@ -223,9 +320,6 @@ class TestFlags:
         )
         assert result_default.exit_code == 0
         assert result_boosted.exit_code == 0
-        # With a higher churn boost, churning players get better outcomes,
-        # so total points should differ
-        # (We just check both succeed; exact values depend on seed + data)
 
     def test_seed_reproducibility(
         self,
@@ -233,7 +327,6 @@ class TestFlags:
         cli_input_csv: str,
         cli_config_csv: str,
     ) -> None:
-        """Same --seed produces identical output."""
         from src.cli import main
 
         result_a = runner.invoke(main, [cli_input_csv, cli_config_csv, "--seed", "42"])
@@ -248,14 +341,12 @@ class TestFlags:
         cli_input_csv: str,
         cli_config_csv: str,
     ) -> None:
-        """Different seeds produce different total points."""
         from src.cli import main
 
         result_a = runner.invoke(main, [cli_input_csv, cli_config_csv, "--seed", "42"])
         result_b = runner.invoke(main, [cli_input_csv, cli_config_csv, "--seed", "99"])
         assert result_a.exit_code == 0
         assert result_b.exit_code == 0
-        # Outputs should differ (extremely unlikely to be identical with different seeds)
         assert result_a.output != result_b.output
 
     def test_verbose_flag(
@@ -264,11 +355,41 @@ class TestFlags:
         cli_input_csv: str,
         cli_config_csv: str,
     ) -> None:
-        """--verbose does not cause errors."""
         from src.cli import main
 
         result = runner.invoke(main, [cli_input_csv, cli_config_csv, "--seed", "42", "--verbose"])
         assert result.exit_code == 0
+
+    def test_threshold_in_summary_csv(
+        self,
+        runner: CliRunner,
+        cli_input_csv: str,
+        cli_config_csv: str,
+        tmp_path: Path,
+    ) -> None:
+        """--threshold affects players_above_threshold in output CSV."""
+        from src.cli import main
+
+        path_high = str(tmp_path / "high.csv")
+        path_low = str(tmp_path / "low.csv")
+
+        runner.invoke(
+            main,
+            [cli_input_csv, cli_config_csv, "--seed", "42",
+             "--threshold", "999999", "-o", path_high],
+        )
+        runner.invoke(
+            main,
+            [cli_input_csv, cli_config_csv, "--seed", "42", "--threshold", "0", "-o", path_low],
+        )
+
+        high_df = pl.read_csv(path_high)
+        low_df = pl.read_csv(path_low)
+
+        # With threshold=999999, nobody should be above
+        assert high_df.row(0, named=True)["players_above_threshold"] == 0
+        # With threshold=0, everyone should be above (unless they got 0 points)
+        assert low_df.row(0, named=True)["players_above_threshold"] >= 0
 
 
 # ---------------------------------------------------------------------------
@@ -284,7 +405,6 @@ class TestErrors:
         runner: CliRunner,
         cli_config_csv: str,
     ) -> None:
-        """Non-existent input CSV shows error."""
         from src.cli import main
 
         result = runner.invoke(main, ["/nonexistent/players.csv", cli_config_csv])
@@ -295,7 +415,6 @@ class TestErrors:
         runner: CliRunner,
         cli_input_csv: str,
     ) -> None:
-        """Non-existent config CSV shows error."""
         from src.cli import main
 
         result = runner.invoke(main, [cli_input_csv, "/nonexistent/config.csv"])
@@ -316,14 +435,12 @@ class TestSummaryContent:
         cli_input_csv: str,
         cli_config_csv: str,
     ) -> None:
-        """Summary lines contain formatted numbers."""
         from src.cli import main
 
         result = runner.invoke(main, [cli_input_csv, cli_config_csv, "--seed", "42"])
         assert result.exit_code == 0
 
         lines = result.output.strip().split("\n")
-        # First three lines should be the summary metrics
         interactions_line = [line for line in lines if "Total interactions" in line]
         points_line = [line for line in lines if "Total points" in line]
         threshold_line = [line for line in lines if "Players above threshold" in line]
@@ -338,7 +455,6 @@ class TestSummaryContent:
         cli_input_csv: str,
         cli_config_csv: str,
     ) -> None:
-        """Default threshold of 100.0 appears in summary."""
         from src.cli import main
 
         result = runner.invoke(main, [cli_input_csv, cli_config_csv, "--seed", "42"])

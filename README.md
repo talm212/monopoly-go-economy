@@ -8,12 +8,19 @@ Economy simulation platform for Monopoly Go game mechanics. Built for the econom
 # Install dependencies
 poetry install
 
-# Run tests (259 tests)
+# Run tests (274 tests)
 poetry run pytest
 
 # Run coin flip simulation via CLI
 poetry run python -m src.cli coin-flip-assignment/input_table.csv \
                               coin-flip-assignment/config_table.csv \
+                              --threshold 100 --seed 42
+
+# Write required summary CSV output
+poetry run python -m src.cli coin-flip-assignment/input_table.csv \
+                              coin-flip-assignment/config_table.csv \
+                              --output results_summary.csv \
+                              --output-players results_players.csv \
                               --threshold 100 --seed 42
 
 # Run Streamlit dashboard
@@ -23,6 +30,52 @@ poetry run streamlit run src/ui/app.py
 docker compose up
 ```
 
+## Output Format
+
+The `--output` flag writes a **summary CSV** with the exact columns specified in the assignment:
+
+```csv
+total_roll_interactions,success_0_count,success_1_count,...,success_N_count,total_points,players_above_threshold
+```
+
+The `--output-players` flag writes a **per-player CSV** with detailed results:
+
+```csv
+user_id,rolls_sink,avg_multiplier,about_to_churn,total_points,num_interactions
+```
+
+## Assumptions
+
+1. **Integer interactions**: `interactions = rolls_sink // avg_multiplier` uses floor division. A player with `rolls_sink=15, avg_multiplier=10` gets 1 interaction (not 1.5). This matches the game mechanic where each interaction costs exactly `avg_multiplier` rolls.
+
+2. **Cumulative points**: Points are accumulated across flips in a chain. With `point_values=[1, 2, 4, 8, 16]`, achieving depth 3 (three consecutive heads) earns `1 + 2 + 4 = 7` points per interaction.
+
+3. **Points scaled by multiplier**: After computing the base points for an interaction, the result is multiplied by the player's `avg_multiplier`. A player with `avg_multiplier=10` who earns 7 base points gets `7 × 10 = 70` points for that interaction.
+
+4. **Churn boost capped at 1.0**: The `about_to_churn` boost multiplies each flip probability by 1.3 (configurable), but caps at 1.0 since probabilities cannot exceed 100%.
+
+5. **Default churn status**: If the `about_to_churn` column is absent from the input CSV, all players default to `false` (no boost applied).
+
+## How `about_to_churn` Affects Probabilities
+
+Players flagged with `about_to_churn=true` receive boosted success probabilities:
+
+```
+boosted_probability = min(base_probability × churn_boost_multiplier, 1.0)
+```
+
+With the default config (`churn_boost_multiplier=1.3`):
+
+| Flip Depth | Base Probability | Boosted (Churn) | Cap Applied? |
+|------------|-----------------|-----------------|--------------|
+| 1 | 60% | 78% | No |
+| 2 | 50% | 65% | No |
+| 3 | 50% | 65% | No |
+| 4 | 50% | 65% | No |
+| 5 | 50% | 65% | No |
+
+This means churning players are more likely to get deeper flip chains, earning more points on average. The boost is configurable via `--churn-boost` on the CLI (default 1.3).
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -31,14 +84,14 @@ docker compose up
 | Dashboard | Streamlit (multi-page: upload, run, results, AI insights, history) |
 | AI | Claude via Bedrock (prod) / Anthropic API (dev) — insights, chat, optimizer |
 | Infrastructure | AWS CDK (Python) — VPC, ECS Fargate, ALB, S3, DynamoDB, Secrets Manager |
-| Testing | pytest (259 tests), TDD workflow, 100K players in ~2s |
+| Testing | pytest (274 tests), TDD workflow, 100K players in ~2s |
 
 ## Features
 
 ### Coin Flip Simulator
 - Vectorized NumPy engine processing 1M+ players in <10 seconds
 - Configurable probabilities, point values, churn boost (1.3x, capped at 1.0)
-- CLI with threshold, seed, and output options
+- CLI with threshold, seed, summary output, and per-player output options
 
 ### Streamlit Dashboard
 - Upload player data + config CSVs
@@ -78,9 +131,9 @@ src/
 ├── ui/                # Streamlit dashboard
 │   ├── app.py         # Entry point
 │   ├── components/    # Reusable: upload, config editor, KPIs, charts, chat panel
-│   └── pages/         # Upload, Run, Results, AI Insights, History
+│   └── pages/         # Coin Flip, AI Insights, History
 └── cli.py             # CLI entrypoint
-tests/                 # 259 tests mirroring src/
+tests/                 # 274 tests mirroring src/
 infra/                 # AWS CDK stacks (network, data, compute, pipeline)
 ```
 
@@ -98,7 +151,7 @@ Everything else (I/O, orchestration, AI, dashboard components) works automatical
 ## Development
 
 ```bash
-poetry run pytest              # Run all 259 tests
+poetry run pytest              # Run all 274 tests
 poetry run pytest --cov        # With coverage report
 poetry run pytest -m unit      # Unit tests only
 poetry run pytest -m slow      # Performance tests
