@@ -1,7 +1,6 @@
 """AI Insights dashboard — LLM-powered analysis of simulation results."""
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 
@@ -11,6 +10,7 @@ from src.application.analyze_results import InsightsAnalyst
 from src.domain.models.coin_flip import CoinFlipResult
 from src.domain.models.insight import Insight, Severity
 from src.infrastructure.llm.client import get_llm_client
+from src.ui.async_helper import run_async
 
 logger = logging.getLogger(__name__)
 
@@ -80,21 +80,15 @@ def _run_generate_insights(
     distribution = result.get_distribution()
     kpi_metrics = result.get_kpi_metrics()
 
-    loop = asyncio.new_event_loop()
-    try:
-        insights = loop.run_until_complete(
-            analyst.generate_insights(
-                result_summary=result_summary,
-                distribution=distribution,
-                config=config_dict,
-                kpi_metrics=kpi_metrics,
-                feature_name="coin flip",
-            )
+    return run_async(
+        analyst.generate_insights(
+            result_summary=result_summary,
+            distribution=distribution,
+            config=config_dict,
+            kpi_metrics=kpi_metrics,
+            feature_name="coin flip",
         )
-    finally:
-        loop.close()
-
-    return insights
+    )
 
 
 # ---------------------------------------------------------------------------

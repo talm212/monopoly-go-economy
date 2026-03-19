@@ -14,7 +14,6 @@ import numpy as np
 import polars as pl
 
 from src.domain.models.coin_flip import CoinFlipConfig, CoinFlipResult
-from src.domain.simulators.registry import SimulatorRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +168,18 @@ class CoinFlipSimulator:
         for col in _REQUIRED_COLUMNS:
             if col not in players.columns:
                 errors.append(f"Missing required column: {col}")
+        if errors:
+            return errors  # Can't validate values if columns are missing
+
+        # avg_multiplier must be positive (non-zero to avoid division by zero)
+        if "avg_multiplier" in players.columns:
+            non_positive = players.filter(pl.col("avg_multiplier") <= 0).height
+            if non_positive > 0:
+                errors.append(
+                    f"avg_multiplier must be positive (found {non_positive} rows with value <= 0)"
+                )
         return errors
+
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -196,9 +206,3 @@ class CoinFlipSimulator:
         )
 
 
-# ---------------------------------------------------------------------------
-# Module-level registration
-# ---------------------------------------------------------------------------
-
-registry = SimulatorRegistry()
-registry.register("coin_flip", CoinFlipSimulator())

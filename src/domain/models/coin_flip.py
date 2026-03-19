@@ -32,8 +32,8 @@ class CoinFlipConfig:
     """
 
     max_successes: int
-    probabilities: list[float]
-    point_values: list[float]
+    probabilities: tuple[float, ...]
+    point_values: tuple[float, ...]
     churn_boost_multiplier: float = 1.3
     reward_threshold: float = 100.0
 
@@ -81,8 +81,8 @@ class CoinFlipConfig:
         """Construct a CoinFlipConfig from a plain dictionary."""
         return cls(
             max_successes=data["max_successes"],
-            probabilities=list(data["probabilities"]),
-            point_values=list(data["point_values"]),
+            probabilities=tuple(data["probabilities"]),
+            point_values=tuple(data["point_values"]),
             churn_boost_multiplier=data.get("churn_boost_multiplier", 1.3),
             reward_threshold=data.get("reward_threshold", 100.0),
         )
@@ -116,8 +116,8 @@ class CoinFlipConfig:
 
         return cls(
             max_successes=max_successes,
-            probabilities=probabilities,
-            point_values=point_values,
+            probabilities=tuple(probabilities),
+            point_values=tuple(point_values),
             churn_boost_multiplier=churn_boost,
             reward_threshold=threshold,
         )

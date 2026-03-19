@@ -7,6 +7,7 @@ migrating to aioboto3 in the future.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 
@@ -48,9 +49,8 @@ class BedrockAdapter:
             "system": system if system else _DEFAULT_SYSTEM_PROMPT,
             "messages": [{"role": "user", "content": prompt}],
         }
-        # Note: boto3 is sync, so we run it directly.
-        # For true async, consider aioboto3 in the future.
-        response = self._client.invoke_model(
+        response = await asyncio.to_thread(
+            self._client.invoke_model,
             modelId=self._model_id,
             body=json.dumps(body),
             contentType="application/json",

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any
 
 import streamlit as st
 
 from src.application.chat_assistant import ChatAssistant, Message
+from src.ui.async_helper import run_async
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ def render_ai_chat_panel(
         # Call the assistant
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
-                response = asyncio.run(
+                response = run_async(
                     assistant.answer(
                         question=question,
                         result_summary=result_summary,

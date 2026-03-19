@@ -32,8 +32,8 @@ class TestCoinFlipConfigValidation:
     def test_mismatched_probabilities_length_raises(self) -> None:
         config = CoinFlipConfig(
             max_successes=5,
-            probabilities=[0.6, 0.5, 0.5],  # only 3 instead of 5
-            point_values=[1.0, 2.0, 4.0, 8.0, 16.0],
+            probabilities=(0.6, 0.5, 0.5),  # only 3 instead of 5
+            point_values=(1.0, 2.0, 4.0, 8.0, 16.0),
         )
         with pytest.raises(ValueError, match="probabilities"):
             config.validate()
@@ -41,8 +41,8 @@ class TestCoinFlipConfigValidation:
     def test_mismatched_point_values_length_raises(self) -> None:
         config = CoinFlipConfig(
             max_successes=5,
-            probabilities=[0.6, 0.5, 0.5, 0.5, 0.5],
-            point_values=[1.0, 2.0],  # only 2 instead of 5
+            probabilities=(0.6, 0.5, 0.5, 0.5, 0.5),
+            point_values=(1.0, 2.0),  # only 2 instead of 5
         )
         with pytest.raises(ValueError, match="point_values"):
             config.validate()
@@ -50,8 +50,8 @@ class TestCoinFlipConfigValidation:
     def test_probability_below_zero_raises(self) -> None:
         config = CoinFlipConfig(
             max_successes=2,
-            probabilities=[-0.1, 0.5],
-            point_values=[1.0, 2.0],
+            probabilities=(-0.1, 0.5),
+            point_values=(1.0, 2.0),
         )
         with pytest.raises(ValueError, match="probability"):
             config.validate()
@@ -59,8 +59,8 @@ class TestCoinFlipConfigValidation:
     def test_probability_above_one_raises(self) -> None:
         config = CoinFlipConfig(
             max_successes=2,
-            probabilities=[0.5, 1.1],
-            point_values=[1.0, 2.0],
+            probabilities=(0.5, 1.1),
+            point_values=(1.0, 2.0),
         )
         with pytest.raises(ValueError, match="probability"):
             config.validate()
@@ -68,8 +68,8 @@ class TestCoinFlipConfigValidation:
     def test_max_successes_zero_raises(self) -> None:
         config = CoinFlipConfig(
             max_successes=0,
-            probabilities=[],
-            point_values=[],
+            probabilities=(),
+            point_values=(),
         )
         with pytest.raises(ValueError, match="max_successes"):
             config.validate()
@@ -77,8 +77,8 @@ class TestCoinFlipConfigValidation:
     def test_negative_point_value_raises(self) -> None:
         config = CoinFlipConfig(
             max_successes=2,
-            probabilities=[0.5, 0.5],
-            point_values=[1.0, -2.0],
+            probabilities=(0.5, 0.5),
+            point_values=(1.0, -2.0),
         )
         with pytest.raises(ValueError, match="point_values"):
             config.validate()
@@ -86,16 +86,16 @@ class TestCoinFlipConfigValidation:
     def test_boundary_probability_zero_is_valid(self) -> None:
         config = CoinFlipConfig(
             max_successes=1,
-            probabilities=[0.0],
-            point_values=[1.0],
+            probabilities=(0.0,),
+            point_values=(1.0,),
         )
         config.validate()  # 0.0 is within [0, 1]
 
     def test_boundary_probability_one_is_valid(self) -> None:
         config = CoinFlipConfig(
             max_successes=1,
-            probabilities=[1.0],
-            point_values=[1.0],
+            probabilities=(1.0,),
+            point_values=(1.0,),
         )
         config.validate()  # 1.0 is within [0, 1]
 
@@ -163,8 +163,8 @@ class TestCoinFlipConfigFromCsv:
         }
         config = CoinFlipConfig.from_csv_dict(csv_data)
         assert config.max_successes == 5
-        assert config.probabilities == [0.60, 0.50, 0.50, 0.50, 0.50]
-        assert config.point_values == [1.0, 2.0, 4.0, 8.0, 16.0]
+        assert config.probabilities == (0.60, 0.50, 0.50, 0.50, 0.50)
+        assert config.point_values == (1.0, 2.0, 4.0, 8.0, 16.0)
 
     def test_from_csv_dict_respects_threshold_arg(self) -> None:
         csv_data: dict[str, str] = {
@@ -192,7 +192,7 @@ class TestCoinFlipConfigFromCsv:
             "points_success_1": "5",
         }
         config = CoinFlipConfig.from_csv_dict(csv_data)
-        assert config.probabilities == [0.6]
+        assert config.probabilities == (0.6,)
 
 
 # ---------------------------------------------------------------------------
@@ -206,8 +206,8 @@ class TestCoinFlipConfigChurnBoost:
     def test_boosted_probabilities_applies_multiplier(self) -> None:
         config = CoinFlipConfig(
             max_successes=2,
-            probabilities=[0.5, 0.5],
-            point_values=[1.0, 2.0],
+            probabilities=(0.5, 0.5),
+            point_values=(1.0, 2.0),
             churn_boost_multiplier=1.3,
         )
         boosted = config.get_boosted_probabilities()
@@ -216,8 +216,8 @@ class TestCoinFlipConfigChurnBoost:
     def test_boosted_probabilities_capped_at_one(self) -> None:
         config = CoinFlipConfig(
             max_successes=2,
-            probabilities=[0.8, 0.9],
-            point_values=[1.0, 2.0],
+            probabilities=(0.8, 0.9),
+            point_values=(1.0, 2.0),
             churn_boost_multiplier=1.3,
         )
         boosted = config.get_boosted_probabilities()
@@ -228,8 +228,8 @@ class TestCoinFlipConfigChurnBoost:
     def test_boosted_probabilities_mixed_capping(self) -> None:
         config = CoinFlipConfig(
             max_successes=3,
-            probabilities=[0.5, 0.8, 0.6],
-            point_values=[1.0, 2.0, 4.0],
+            probabilities=(0.5, 0.8, 0.6),
+            point_values=(1.0, 2.0, 4.0),
             churn_boost_multiplier=1.3,
         )
         boosted = config.get_boosted_probabilities()
@@ -240,8 +240,8 @@ class TestCoinFlipConfigChurnBoost:
     def test_boosted_probabilities_with_no_boost(self) -> None:
         config = CoinFlipConfig(
             max_successes=2,
-            probabilities=[0.5, 0.5],
-            point_values=[1.0, 2.0],
+            probabilities=(0.5, 0.5),
+            point_values=(1.0, 2.0),
             churn_boost_multiplier=1.0,
         )
         boosted = config.get_boosted_probabilities()
@@ -259,7 +259,7 @@ class TestCoinFlipConfigProtocol:
     def test_is_instance_of_simulator_config(self) -> None:
         config = CoinFlipConfig(
             max_successes=1,
-            probabilities=[0.5],
-            point_values=[1.0],
+            probabilities=(0.5,),
+            point_values=(1.0,),
         )
         assert isinstance(config, SimulatorConfig)
