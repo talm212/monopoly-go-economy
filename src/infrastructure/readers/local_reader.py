@@ -16,7 +16,7 @@ from src.infrastructure.readers.normalize import normalize_churn_column
 
 logger = logging.getLogger(__name__)
 
-_REQUIRED_PLAYER_COLUMNS: list[str] = ["user_id", "rolls_sink", "avg_multiplier"]
+_REQUIRED_PLAYER_COLUMNS: tuple[str, ...] = ("user_id", "rolls_sink", "avg_multiplier")
 
 
 class LocalDataReader:
@@ -104,9 +104,7 @@ class LocalDataReader:
             if col in df.columns:
                 null_count = df[col].null_count()
                 if null_count > 0:
-                    errors.append(
-                        f"Column '{col}' contains {null_count} null value(s)"
-                    )
+                    errors.append(f"Column '{col}' contains {null_count} null value(s)")
 
         return errors
 

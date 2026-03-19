@@ -3,6 +3,7 @@
 Works with any simulator's results — compares KPI metrics and
 distribution data from run summary dictionaries.
 """
+
 from __future__ import annotations
 
 import logging
@@ -75,7 +76,8 @@ def _render_distribution_comparison(
         st.info("No distribution data available for comparison.")
         return
 
-    all_keys = sorted(set(list(dist_a.keys()) + list(dist_b.keys())), key=lambda x: int(x) if x.isdigit() else x)
+    combined_keys = set(list(dist_a.keys()) + list(dist_b.keys()))
+    all_keys = sorted(combined_keys, key=lambda x: int(x) if x.isdigit() else x)
 
     rows: list[dict[str, Any]] = []
     for key in all_keys:
@@ -128,12 +130,14 @@ def _render_config_diff(
         val_a = config_a.get(key, "N/A")
         val_b = config_b.get(key, "N/A")
         changed = "Yes" if val_a != val_b else ""
-        diff_rows.append({
-            "Parameter": key,
-            label_a: str(val_a),
-            label_b: str(val_b),
-            "Changed": changed,
-        })
+        diff_rows.append(
+            {
+                "Parameter": key,
+                label_a: str(val_a),
+                label_b: str(val_b),
+                "Changed": changed,
+            }
+        )
 
     if diff_rows:
         df = pl.DataFrame(diff_rows)

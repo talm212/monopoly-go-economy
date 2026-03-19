@@ -74,35 +74,39 @@ def sample_kpi_metrics() -> dict[str, float]:
     }
 
 
-VALID_LLM_RESPONSE = json.dumps([
-    {
-        "finding": "High churn boost impact",
-        "severity": "warning",
-        "recommendation": "Consider reducing churn boost to 1.15",
-        "metric_references": {"churn_avg_points": 150.5, "non_churn_avg_points": 95.2},
-    }
-])
+VALID_LLM_RESPONSE = json.dumps(
+    [
+        {
+            "finding": "High churn boost impact",
+            "severity": "warning",
+            "recommendation": "Consider reducing churn boost to 1.15",
+            "metric_references": {"churn_avg_points": 150.5, "non_churn_avg_points": 95.2},
+        }
+    ]
+)
 
-MULTI_INSIGHT_RESPONSE = json.dumps([
-    {
-        "finding": "High churn boost impact",
-        "severity": "warning",
-        "recommendation": "Consider reducing churn boost to 1.15",
-        "metric_references": {"churn_avg_points": 150.5},
-    },
-    {
-        "finding": "Distribution looks healthy",
-        "severity": "info",
-        "recommendation": "No changes needed",
-        "metric_references": {"p50_depth": 2.0, "p90_depth": 4.0},
-    },
-    {
-        "finding": "Threshold exceeded by too many players",
-        "severity": "critical",
-        "recommendation": "Raise threshold to 150",
-        "metric_references": {"pct_above_threshold": 0.65},
-    },
-])
+MULTI_INSIGHT_RESPONSE = json.dumps(
+    [
+        {
+            "finding": "High churn boost impact",
+            "severity": "warning",
+            "recommendation": "Consider reducing churn boost to 1.15",
+            "metric_references": {"churn_avg_points": 150.5},
+        },
+        {
+            "finding": "Distribution looks healthy",
+            "severity": "info",
+            "recommendation": "No changes needed",
+            "metric_references": {"p50_depth": 2.0, "p90_depth": 4.0},
+        },
+        {
+            "finding": "Threshold exceeded by too many players",
+            "severity": "critical",
+            "recommendation": "Raise threshold to 150",
+            "metric_references": {"pct_above_threshold": 0.65},
+        },
+    ]
+)
 
 
 # ---------------------------------------------------------------------------
@@ -347,7 +351,9 @@ class TestPromptConstruction:
             kpi_metrics=sample_kpi_metrics,
         )
 
-        system_arg = mock_llm.complete.call_args[1].get("system") or mock_llm.complete.call_args[0][1]
+        system_arg = (
+            mock_llm.complete.call_args[1].get("system") or mock_llm.complete.call_args[0][1]
+        )
         assert "economy" in system_arg.lower()
         assert "Monopoly Go" in system_arg
         assert "JSON" in system_arg
@@ -470,20 +476,22 @@ class TestErrorHandling:
         sample_kpi_metrics: dict[str, float],
     ) -> None:
         """Insight with invalid severity is skipped, valid ones are kept."""
-        response = json.dumps([
-            {
-                "finding": "Valid insight",
-                "severity": "info",
-                "recommendation": "All good",
-                "metric_references": {"x": 1.0},
-            },
-            {
-                "finding": "Bad severity",
-                "severity": "catastrophic",
-                "recommendation": "Panic",
-                "metric_references": {"y": 2.0},
-            },
-        ])
+        response = json.dumps(
+            [
+                {
+                    "finding": "Valid insight",
+                    "severity": "info",
+                    "recommendation": "All good",
+                    "metric_references": {"x": 1.0},
+                },
+                {
+                    "finding": "Bad severity",
+                    "severity": "catastrophic",
+                    "recommendation": "Panic",
+                    "metric_references": {"y": 2.0},
+                },
+            ]
+        )
         mock_llm.complete.return_value = response
 
         insights = await analyst.generate_insights(
@@ -507,20 +515,22 @@ class TestErrorHandling:
         sample_kpi_metrics: dict[str, float],
     ) -> None:
         """Insight missing a required field is skipped."""
-        response = json.dumps([
-            {
-                "finding": "Missing recommendation",
-                "severity": "info",
-                # "recommendation" is missing
-                "metric_references": {"x": 1.0},
-            },
-            {
-                "finding": "Complete insight",
-                "severity": "warning",
-                "recommendation": "Do something",
-                "metric_references": {"z": 3.0},
-            },
-        ])
+        response = json.dumps(
+            [
+                {
+                    "finding": "Missing recommendation",
+                    "severity": "info",
+                    # "recommendation" is missing
+                    "metric_references": {"x": 1.0},
+                },
+                {
+                    "finding": "Complete insight",
+                    "severity": "warning",
+                    "recommendation": "Do something",
+                    "metric_references": {"z": 3.0},
+                },
+            ]
+        )
         mock_llm.complete.return_value = response
 
         insights = await analyst.generate_insights(
@@ -544,14 +554,16 @@ class TestErrorHandling:
         sample_kpi_metrics: dict[str, float],
     ) -> None:
         """LLM wrapping JSON in markdown code fences is still parsed."""
-        inner_json = json.dumps([
-            {
-                "finding": "Wrapped in markdown",
-                "severity": "info",
-                "recommendation": "No action needed",
-                "metric_references": {"val": 42.0},
-            }
-        ])
+        inner_json = json.dumps(
+            [
+                {
+                    "finding": "Wrapped in markdown",
+                    "severity": "info",
+                    "recommendation": "No action needed",
+                    "metric_references": {"val": 42.0},
+                }
+            ]
+        )
         mock_llm.complete.return_value = f"```json\n{inner_json}\n```"
 
         insights = await analyst.generate_insights(

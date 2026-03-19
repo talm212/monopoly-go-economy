@@ -53,9 +53,7 @@ def render_ai_chat_panel(
             st.markdown(question)
 
         # Build Message objects from history for the assistant
-        message_history = [
-            Message(role=msg["role"], content=msg["content"]) for msg in history
-        ]
+        message_history = [Message(role=msg["role"], content=msg["content"]) for msg in history]
 
         # Call the assistant
         with st.chat_message("assistant"):

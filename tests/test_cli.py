@@ -30,12 +30,14 @@ def runner() -> CliRunner:
 def cli_input_csv(tmp_path: Any) -> str:
     """Write a small player CSV for CLI tests and return the path."""
     path = tmp_path / "players.csv"
-    df = pl.DataFrame({
-        "user_id": [1, 2, 3, 4, 5],
-        "rolls_sink": [100, 200, 50, 500, 1000],
-        "avg_multiplier": [10, 20, 5, 50, 100],
-        "about_to_churn": [False, False, True, False, False],
-    })
+    df = pl.DataFrame(
+        {
+            "user_id": [1, 2, 3, 4, 5],
+            "rolls_sink": [100, 200, 50, 500, 1000],
+            "avg_multiplier": [10, 20, 5, 50, 100],
+            "about_to_churn": [False, False, True, False, False],
+        }
+    )
     df.write_csv(str(path))
     return str(path)
 
@@ -44,18 +46,36 @@ def cli_input_csv(tmp_path: Any) -> str:
 def cli_config_csv(tmp_path: Any) -> str:
     """Write a config CSV for CLI tests and return the path."""
     path = tmp_path / "config.csv"
-    df = pl.DataFrame({
-        "Input": [
-            "p_success_1", "p_success_2", "p_success_3",
-            "p_success_4", "p_success_5", "max_successes",
-            "points_success_1", "points_success_2", "points_success_3",
-            "points_success_4", "points_success_5",
-        ],
-        "Value": [
-            "60%", "50%", "50%", "50%", "50%", "5",
-            "1", "2", "4", "8", "16",
-        ],
-    })
+    df = pl.DataFrame(
+        {
+            "Input": [
+                "p_success_1",
+                "p_success_2",
+                "p_success_3",
+                "p_success_4",
+                "p_success_5",
+                "max_successes",
+                "points_success_1",
+                "points_success_2",
+                "points_success_3",
+                "points_success_4",
+                "points_success_5",
+            ],
+            "Value": [
+                "60%",
+                "50%",
+                "50%",
+                "50%",
+                "50%",
+                "5",
+                "1",
+                "2",
+                "4",
+                "8",
+                "16",
+            ],
+        }
+    )
     df.write_csv(str(path))
     return str(path)
 
@@ -198,9 +218,7 @@ class TestFlags:
         """--churn-boost affects simulation results (different from default 1.3)."""
         from src.cli import main
 
-        result_default = runner.invoke(
-            main, [cli_input_csv, cli_config_csv, "--seed", "42"]
-        )
+        result_default = runner.invoke(main, [cli_input_csv, cli_config_csv, "--seed", "42"])
         result_boosted = runner.invoke(
             main, [cli_input_csv, cli_config_csv, "--seed", "42", "--churn-boost", "2.0"]
         )
@@ -219,12 +237,8 @@ class TestFlags:
         """Same --seed produces identical output."""
         from src.cli import main
 
-        result_a = runner.invoke(
-            main, [cli_input_csv, cli_config_csv, "--seed", "42"]
-        )
-        result_b = runner.invoke(
-            main, [cli_input_csv, cli_config_csv, "--seed", "42"]
-        )
+        result_a = runner.invoke(main, [cli_input_csv, cli_config_csv, "--seed", "42"])
+        result_b = runner.invoke(main, [cli_input_csv, cli_config_csv, "--seed", "42"])
         assert result_a.exit_code == 0
         assert result_b.exit_code == 0
         assert result_a.output == result_b.output
@@ -238,12 +252,8 @@ class TestFlags:
         """Different seeds produce different total points."""
         from src.cli import main
 
-        result_a = runner.invoke(
-            main, [cli_input_csv, cli_config_csv, "--seed", "42"]
-        )
-        result_b = runner.invoke(
-            main, [cli_input_csv, cli_config_csv, "--seed", "99"]
-        )
+        result_a = runner.invoke(main, [cli_input_csv, cli_config_csv, "--seed", "42"])
+        result_b = runner.invoke(main, [cli_input_csv, cli_config_csv, "--seed", "99"])
         assert result_a.exit_code == 0
         assert result_b.exit_code == 0
         # Outputs should differ (extremely unlikely to be identical with different seeds)
@@ -258,9 +268,7 @@ class TestFlags:
         """--verbose does not cause errors."""
         from src.cli import main
 
-        result = runner.invoke(
-            main, [cli_input_csv, cli_config_csv, "--seed", "42", "--verbose"]
-        )
+        result = runner.invoke(main, [cli_input_csv, cli_config_csv, "--seed", "42", "--verbose"])
         assert result.exit_code == 0
 
 
@@ -280,9 +288,7 @@ class TestErrors:
         """Non-existent input CSV shows error."""
         from src.cli import main
 
-        result = runner.invoke(
-            main, ["/nonexistent/players.csv", cli_config_csv]
-        )
+        result = runner.invoke(main, ["/nonexistent/players.csv", cli_config_csv])
         assert result.exit_code != 0
 
     def test_missing_config_file_shows_error(
@@ -293,9 +299,7 @@ class TestErrors:
         """Non-existent config CSV shows error."""
         from src.cli import main
 
-        result = runner.invoke(
-            main, [cli_input_csv, "/nonexistent/config.csv"]
-        )
+        result = runner.invoke(main, [cli_input_csv, "/nonexistent/config.csv"])
         assert result.exit_code != 0
 
 

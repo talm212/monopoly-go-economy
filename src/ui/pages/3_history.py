@@ -1,7 +1,9 @@
 """Simulation History page — browse, compare, and manage past simulation runs."""
+
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any
 
 import streamlit as st
@@ -26,8 +28,6 @@ _DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 def _format_timestamp(iso_str: str) -> str:
     """Format an ISO timestamp to a human-readable string."""
-    from datetime import datetime
-
     try:
         dt = datetime.fromisoformat(iso_str)
         return dt.strftime(_DATE_FORMAT)
@@ -41,7 +41,10 @@ def _format_run_label(run: dict[str, Any]) -> str:
     feature = run.get("feature", "unknown")
     summary = run.get("result_summary", {})
     total_pts = summary.get("total_points", 0)
-    return f"{created} | {feature} | {total_pts:,.0f} pts"
+    try:
+        return f"{created} | {feature} | {float(total_pts):,.0f} pts"
+    except (ValueError, TypeError):
+        return f"{created} | {feature}"
 
 
 def _render_run_card(run: dict[str, Any]) -> None:
@@ -83,11 +86,11 @@ store = LocalSimulationStore()
 
 # ---- Feature filter -------------------------------------------------------
 
-feature_filter = st.selectbox(
-    "Filter by feature",
-    options=["All", "coin_flip", "loot_table"],
-    index=0,
-)
+# Get unique features from stored runs
+all_runs = store.list_runs(limit=100)
+available_features = sorted({r.get("feature", "unknown") for r in all_runs})
+feature_options = ["All"] + available_features
+feature_filter = st.selectbox("Filter by feature", options=feature_options, index=0)
 
 selected_feature: str | None = None if feature_filter == "All" else feature_filter
 
@@ -150,9 +153,7 @@ else:
         if selected_a == selected_b:
             st.warning("Please select two different runs for comparison.")
         else:
-            compare_clicked = st.button(
-                "Compare", type="primary", use_container_width=True
-            )
+            compare_clicked = st.button("Compare", type="primary", use_container_width=True)
             if compare_clicked:
                 run_a = store.get_run(selected_a)
                 run_b = store.get_run(selected_b)

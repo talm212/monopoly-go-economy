@@ -95,9 +95,7 @@ class TestComputeStackFargateService:
                             {
                                 "PortMappings": Match.array_with(
                                     [
-                                        Match.object_like(
-                                            {"ContainerPort": 8501}
-                                        ),
+                                        Match.object_like({"ContainerPort": 8501}),
                                     ]
                                 ),
                             }
@@ -118,12 +116,8 @@ class TestComputeStackFargateService:
                             {
                                 "Environment": Match.array_with(
                                     [
-                                        Match.object_like(
-                                            {"Name": "DATA_BUCKET_NAME"}
-                                        ),
-                                        Match.object_like(
-                                            {"Name": "HISTORY_TABLE_NAME"}
-                                        ),
+                                        Match.object_like({"Name": "DATA_BUCKET_NAME"}),
+                                        Match.object_like({"Name": "HISTORY_TABLE_NAME"}),
                                         Match.object_like(
                                             {
                                                 "Name": "LLM_PROVIDER",
@@ -226,9 +220,7 @@ class TestComputeStackPermissions:
                             [
                                 Match.object_like(
                                     {
-                                        "Action": Match.array_with(
-                                            ["s3:GetObject*"]
-                                        ),
+                                        "Action": Match.array_with(["s3:GetObject*"]),
                                         "Effect": "Allow",
                                     }
                                 ),
@@ -250,9 +242,7 @@ class TestComputeStackPermissions:
                             [
                                 Match.object_like(
                                     {
-                                        "Action": Match.array_with(
-                                            ["dynamodb:BatchGetItem"]
-                                        ),
+                                        "Action": Match.array_with(["dynamodb:BatchGetItem"]),
                                         "Effect": "Allow",
                                     }
                                 ),

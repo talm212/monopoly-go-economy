@@ -1,15 +1,12 @@
 """Reusable file upload widget that converts CSV uploads to Polars DataFrames."""
+
 from __future__ import annotations
 
 import io
 import logging
-from typing import TYPE_CHECKING
 
 import polars as pl
 import streamlit as st
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 

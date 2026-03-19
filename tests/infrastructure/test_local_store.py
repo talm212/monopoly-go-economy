@@ -1,4 +1,5 @@
 """Tests for LocalSimulationStore — JSON-based simulation history persistence."""
+
 from __future__ import annotations
 
 import json

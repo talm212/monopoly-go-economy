@@ -1,9 +1,11 @@
 """Safe async-to-sync helper for running coroutines from Streamlit's sync context."""
+
 from __future__ import annotations
 
 import asyncio
 import concurrent.futures
-from typing import Any, Coroutine
+from collections.abc import Coroutine
+from typing import Any
 
 
 def run_async(coro: Coroutine[Any, Any, Any]) -> Any:

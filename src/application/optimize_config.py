@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import json
 import logging
-import re
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import polars as pl
 
@@ -21,6 +21,7 @@ from src.domain.models.optimization import (
     OptimizationTarget,
 )
 from src.infrastructure.llm.client import LLMClient
+from src.infrastructure.llm.utils import strip_markdown_fences
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +98,9 @@ class ConfigOptimizer:
                 suggestion = await self._get_suggestion(
                     current_config, result_summary, target, current_value
                 )
-                current_config = self._apply_guardrails(suggestion, original_max_successes)
+                current_config = self._apply_guardrails(
+                    suggestion, original_max_successes, current_config
+                )
             except Exception:
                 logger.exception("LLM suggestion failed at iteration %d", i + 1)
                 break
@@ -124,13 +127,23 @@ class ConfigOptimizer:
         self,
         config: dict[str, Any],
         original_max_successes: Any,
+        current_config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Sanitize an LLM-suggested config to enforce invariants.
 
+        - Required keys must exist; falls back to current_config if missing.
         - Probabilities are clamped to [0.0, 1.0].
         - Point values are clamped to >= 0.0.
         - max_successes is restored to its original value.
         """
+        # Ensure required keys exist
+        for key in ("probabilities", "point_values", "max_successes"):
+            if key not in config:
+                logger.warning("LLM suggestion missing key: %s", key)
+                if current_config is not None:
+                    return current_config  # fall back to current
+                break
+
         result = dict(config)
 
         if original_max_successes is not None:
@@ -142,9 +155,7 @@ class ConfigOptimizer:
             ]
 
         if "point_values" in result:
-            result["point_values"] = [
-                max(0.0, float(v)) for v in result["point_values"]
-            ]
+            result["point_values"] = [max(0.0, float(v)) for v in result["point_values"]]
 
         return result
 
@@ -158,7 +169,7 @@ class ConfigOptimizer:
         """Ask the LLM for a new config suggestion and parse the JSON response."""
         prompt = self._build_prompt(config, result_summary, target, current_value)
         response = await self._llm.complete(prompt, system=OPTIMIZER_SYSTEM_PROMPT)
-        cleaned = self._strip_markdown_fences(response)
+        cleaned = strip_markdown_fences(response)
 
         try:
             parsed = json.loads(cleaned)
@@ -190,12 +201,3 @@ class ConfigOptimizer:
             f"Distance to target: {abs(current_value - target.target_value)}\n\n"
             "Suggest a modified config as JSON to move closer to the target."
         )
-
-    @staticmethod
-    def _strip_markdown_fences(text: str) -> str:
-        """Remove markdown code fences if present."""
-        pattern = r"```(?:json)?\s*\n?(.*?)\n?\s*```"
-        match = re.search(pattern, text, re.DOTALL)
-        if match:
-            return match.group(1).strip()
-        return text.strip()

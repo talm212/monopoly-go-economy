@@ -21,7 +21,10 @@ class TestFixtures:
     def test_sample_players_df_schema(self, sample_players_df: pl.DataFrame) -> None:
         assert sample_players_df.shape[0] == 10
         assert set(sample_players_df.columns) == {
-            "user_id", "rolls_sink", "avg_multiplier", "about_to_churn",
+            "user_id",
+            "rolls_sink",
+            "avg_multiplier",
+            "about_to_churn",
         }
 
     def test_sample_players_df_has_churn_players(self, sample_players_df: pl.DataFrame) -> None:

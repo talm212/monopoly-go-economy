@@ -75,6 +75,7 @@ class DataStack(cdk.Stack):
                 name="created_at", type=dynamodb.AttributeType.STRING
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            point_in_time_recovery=not is_dev,
             removal_policy=RemovalPolicy.DESTROY if is_dev else RemovalPolicy.RETAIN,
         )
 

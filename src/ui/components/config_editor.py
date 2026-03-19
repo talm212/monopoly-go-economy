@@ -1,4 +1,5 @@
 """Reusable dynamic configuration editor that renders form fields from a dict."""
+
 from __future__ import annotations
 
 import logging
@@ -99,8 +100,6 @@ def render_config_editor(
                 type(value).__name__,
                 param_name,
             )
-            edited[param_name] = st.text_input(
-                display_label, value=str(value), key=widget_key
-            )
+            edited[param_name] = st.text_input(display_label, value=str(value), key=widget_key)
 
     return edited

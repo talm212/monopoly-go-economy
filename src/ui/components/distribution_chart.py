@@ -1,4 +1,5 @@
 """Reusable bar chart component for rendering distribution data."""
+
 from __future__ import annotations
 
 import logging

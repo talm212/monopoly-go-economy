@@ -7,7 +7,7 @@ CoinFlipResult wraps the per-player outcomes and provides summary accessors.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import polars as pl
@@ -56,15 +56,11 @@ class CoinFlipConfig:
 
         for i, p in enumerate(self.probabilities):
             if p < 0.0 or p > 1.0:
-                raise ValueError(
-                    f"probability at index {i} is {p}; must be in [0, 1]"
-                )
+                raise ValueError(f"probability at index {i} is {p}; must be in [0, 1]")
 
         for i, v in enumerate(self.point_values):
             if v < 0.0:
-                raise ValueError(
-                    f"point_values at index {i} is {v}; must be non-negative"
-                )
+                raise ValueError(f"point_values at index {i} is {v}; must be non-negative")
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize configuration to a plain dictionary."""
@@ -79,13 +75,15 @@ class CoinFlipConfig:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CoinFlipConfig:
         """Construct a CoinFlipConfig from a plain dictionary."""
-        return cls(
+        config = cls(
             max_successes=data["max_successes"],
             probabilities=tuple(data["probabilities"]),
             point_values=tuple(data["point_values"]),
             churn_boost_multiplier=data.get("churn_boost_multiplier", 1.3),
             reward_threshold=data.get("reward_threshold", 100.0),
         )
+        config.validate()
+        return config
 
     @classmethod
     def from_csv_dict(
@@ -114,19 +112,19 @@ class CoinFlipConfig:
         for i in range(1, max_successes + 1):
             point_values.append(float(csv_data[f"points_success_{i}"]))
 
-        return cls(
+        config = cls(
             max_successes=max_successes,
             probabilities=tuple(probabilities),
             point_values=tuple(point_values),
             churn_boost_multiplier=churn_boost,
             reward_threshold=threshold,
         )
+        config.validate()
+        return config
 
     def get_boosted_probabilities(self) -> list[float]:
         """Return probabilities with churn boost applied, capped at 1.0."""
-        return [
-            min(p * self.churn_boost_multiplier, 1.0) for p in self.probabilities
-        ]
+        return [min(p * self.churn_boost_multiplier, 1.0) for p in self.probabilities]
 
 
 # ---------------------------------------------------------------------------
@@ -170,9 +168,7 @@ class CoinFlipResult:
 
     def get_distribution(self) -> dict[str, int]:
         """Return success depth distribution with string keys."""
-        return {
-            str(depth): count for depth, count in sorted(self.success_counts.items())
-        }
+        return {str(depth): count for depth, count in sorted(self.success_counts.items())}
 
     def get_kpi_metrics(self) -> dict[str, float]:
         """Return key performance indicators."""

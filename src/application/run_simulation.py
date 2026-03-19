@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 import polars as pl
 
 if TYPE_CHECKING:
-    from src.domain.protocols import Simulator, SimulatorConfig, SimulationResult
+    from src.domain.protocols import SimulationResult, Simulator, SimulatorConfig
 
 logger = logging.getLogger(__name__)
 

@@ -54,7 +54,10 @@ target-version = "py312"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "TCH"]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/ui/pages/*.py" = ["N999"]  # Streamlit convention: numbered page files
 
 [tool.coverage.run]
 source = ["src"]

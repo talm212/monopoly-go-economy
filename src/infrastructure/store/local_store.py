@@ -4,12 +4,13 @@ Persists simulation run metadata and summaries as individual JSON files
 in a local directory. Designed for the Streamlit dashboard to support
 run history browsing, comparison, and CSV export.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +31,7 @@ class LocalSimulationStore:
         config, result_summary, and distribution.
         """
         run_id = uuid.uuid4().hex
-        created_at = datetime.now(tz=timezone.utc).isoformat()
+        created_at = datetime.now(tz=UTC).isoformat()
 
         record: dict[str, Any] = {
             "run_id": run_id,

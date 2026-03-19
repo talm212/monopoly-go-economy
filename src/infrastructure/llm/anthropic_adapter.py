@@ -23,6 +23,10 @@ class AnthropicAdapter:
         api_key: str = "",
         model: str = "claude-sonnet-4-20250514",
     ) -> None:
+        if not api_key:
+            raise ValueError(
+                "ANTHROPIC_API_KEY must be set. " "Export it or use LLM_PROVIDER=bedrock."
+            )
         self._client = AsyncAnthropic(api_key=api_key)
         self._model = model
 

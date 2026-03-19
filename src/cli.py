@@ -78,8 +78,7 @@ def main(
         click.echo(f"Total interactions: {summary['total_interactions']:,}")
         click.echo(f"Total points: {summary['total_points']:,.2f}")
         click.echo(
-            f"Players above threshold ({threshold}): "
-            f"{summary['players_above_threshold']:,}"
+            f"Players above threshold ({threshold}): " f"{summary['players_above_threshold']:,}"
         )
 
         # Print distribution

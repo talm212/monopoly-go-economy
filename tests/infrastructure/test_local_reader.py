@@ -117,24 +117,18 @@ def valid_config_csv(tmp_path: Path) -> str:
 class TestReadPlayers:
     """Tests for LocalDataReader.read_players()."""
 
-    def test_returns_polars_dataframe(
-        self, reader: LocalDataReader, valid_player_csv: str
-    ) -> None:
+    def test_returns_polars_dataframe(self, reader: LocalDataReader, valid_player_csv: str) -> None:
         result = reader.read_players(valid_player_csv)
         assert isinstance(result, pl.DataFrame)
 
-    def test_correct_schema_columns(
-        self, reader: LocalDataReader, valid_player_csv: str
-    ) -> None:
+    def test_correct_schema_columns(self, reader: LocalDataReader, valid_player_csv: str) -> None:
         result = reader.read_players(valid_player_csv)
         assert "user_id" in result.columns
         assert "rolls_sink" in result.columns
         assert "avg_multiplier" in result.columns
         assert "about_to_churn" in result.columns
 
-    def test_correct_row_count(
-        self, reader: LocalDataReader, valid_player_csv: str
-    ) -> None:
+    def test_correct_row_count(self, reader: LocalDataReader, valid_player_csv: str) -> None:
         result = reader.read_players(valid_player_csv)
         assert len(result) == 3
 
@@ -183,9 +177,7 @@ class TestValidatePlayers:
         errors = reader.validate_players(sample_players_df)
         assert errors == []
 
-    def test_missing_required_column_returns_error(
-        self, reader: LocalDataReader
-    ) -> None:
+    def test_missing_required_column_returns_error(self, reader: LocalDataReader) -> None:
         df = pl.DataFrame({"user_id": [1], "avg_multiplier": [10]})
         errors = reader.validate_players(df)
         assert len(errors) > 0
@@ -200,9 +192,7 @@ class TestValidatePlayers:
         assert any("rolls_sink" in e for e in errors)
         assert any("avg_multiplier" in e for e in errors)
 
-    def test_null_values_in_user_id_returns_error(
-        self, reader: LocalDataReader
-    ) -> None:
+    def test_null_values_in_user_id_returns_error(self, reader: LocalDataReader) -> None:
         df = pl.DataFrame(
             {
                 "user_id": [1, None, 3],
@@ -215,9 +205,7 @@ class TestValidatePlayers:
         assert len(errors) > 0
         assert any("null" in e.lower() for e in errors)
 
-    def test_null_values_in_rolls_sink_returns_error(
-        self, reader: LocalDataReader
-    ) -> None:
+    def test_null_values_in_rolls_sink_returns_error(self, reader: LocalDataReader) -> None:
         df = pl.DataFrame(
             {
                 "user_id": [1, 2, 3],
@@ -253,9 +241,7 @@ class TestValidatePlayers:
 class TestReadConfig:
     """Tests for LocalDataReader.read_config()."""
 
-    def test_returns_dict(
-        self, reader: LocalDataReader, valid_config_csv: str
-    ) -> None:
+    def test_returns_dict(self, reader: LocalDataReader, valid_config_csv: str) -> None:
         result = reader.read_config(valid_config_csv)
         assert isinstance(result, dict)
 
@@ -266,9 +252,7 @@ class TestReadConfig:
         assert result["p_success_1"] == pytest.approx(0.60)
         assert result["p_success_2"] == pytest.approx(0.50)
 
-    def test_parses_integer_string(
-        self, reader: LocalDataReader, valid_config_csv: str
-    ) -> None:
+    def test_parses_integer_string(self, reader: LocalDataReader, valid_config_csv: str) -> None:
         result = reader.read_config(valid_config_csv)
         assert result["max_successes"] == 5
         assert isinstance(result["max_successes"], int)
@@ -280,9 +264,7 @@ class TestReadConfig:
         assert result["points_success_1"] == 1
         assert result["points_success_2"] == 2
 
-    def test_all_keys_present(
-        self, reader: LocalDataReader, valid_config_csv: str
-    ) -> None:
+    def test_all_keys_present(self, reader: LocalDataReader, valid_config_csv: str) -> None:
         result = reader.read_config(valid_config_csv)
         assert "p_success_1" in result
         assert "p_success_2" in result

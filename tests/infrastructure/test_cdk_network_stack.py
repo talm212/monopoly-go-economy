@@ -75,9 +75,7 @@ class TestNetworkStackEcr:
         template.has_resource_properties(
             "AWS::ECR::Repository",
             {
-                "LifecyclePolicy": Match.object_like(
-                    {"LifecyclePolicyText": Match.any_value()}
-                ),
+                "LifecyclePolicy": Match.object_like({"LifecyclePolicyText": Match.any_value()}),
             },
         )
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from src.infrastructure.llm.client import LLMClient
 
@@ -37,7 +37,7 @@ class Message:
         content: The message text.
     """
 
-    role: str
+    role: Literal["user", "assistant"]
     content: str
 
 

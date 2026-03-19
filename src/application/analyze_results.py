@@ -9,11 +9,11 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from typing import Any
 
 from src.domain.models.insight import Insight, Severity
 from src.infrastructure.llm.client import LLMClient
+from src.infrastructure.llm.utils import strip_markdown_fences
 
 logger = logging.getLogger(__name__)
 
@@ -68,9 +68,7 @@ class InsightsAnalyst:
         Returns:
             List of Insight objects. Empty list on any error.
         """
-        prompt = self._build_prompt(
-            result_summary, distribution, config, kpi_metrics, feature_name
-        )
+        prompt = self._build_prompt(result_summary, distribution, config, kpi_metrics, feature_name)
 
         try:
             response = await self._llm.complete(prompt, system=SYSTEM_PROMPT)
@@ -104,7 +102,7 @@ class InsightsAnalyst:
         invalid severity values, and missing fields by skipping
         problematic entries.
         """
-        cleaned = self._strip_markdown_fences(response)
+        cleaned = strip_markdown_fences(response)
 
         try:
             parsed = json.loads(cleaned)
@@ -144,18 +142,14 @@ class InsightsAnalyst:
             logger.warning("Skipping insight with invalid severity: %s", severity_str)
             return None
 
+        try:
+            refs = {str(k): float(v) for k, v in metric_references.items()}
+        except (ValueError, TypeError):
+            refs = {}
+
         return Insight(
             finding=str(finding),
             severity=severity,
             recommendation=str(recommendation),
-            metric_references={str(k): float(v) for k, v in metric_references.items()},
+            metric_references=refs,
         )
-
-    @staticmethod
-    def _strip_markdown_fences(text: str) -> str:
-        """Remove markdown code fences if present."""
-        pattern = r"```(?:json)?\s*\n?(.*?)\n?\s*```"
-        match = re.search(pattern, text, re.DOTALL)
-        if match:
-            return match.group(1).strip()
-        return text.strip()

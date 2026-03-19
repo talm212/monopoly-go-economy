@@ -55,10 +55,7 @@ class SimulatorRegistry:
             KeyError: If no simulator is registered under the given name.
         """
         if name not in self._simulators:
-            raise KeyError(
-                f"Unknown simulator '{name}'. "
-                f"Available: {self.list_simulators()}"
-            )
+            raise KeyError(f"Unknown simulator '{name}'. " f"Available: {self.list_simulators()}")
         return self._simulators[name]
 
     def list_simulators(self) -> list[str]:

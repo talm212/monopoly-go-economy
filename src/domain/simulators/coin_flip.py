@@ -54,9 +54,7 @@ class CoinFlipSimulator:
 
         # 1. Compute interactions per player: rolls_sink // avg_multiplier
         players_with_interactions = players.with_columns(
-            (pl.col("rolls_sink") // pl.col("avg_multiplier"))
-            .cast(pl.Int64)
-            .alias("interactions")
+            (pl.col("rolls_sink") // pl.col("avg_multiplier")).cast(pl.Int64).alias("interactions")
         )
 
         interactions_array = players_with_interactions["interactions"].to_numpy()
@@ -67,9 +65,7 @@ class CoinFlipSimulator:
             return self._build_empty_result(players, config)
 
         # 2. Build flat arrays: repeat player data by their interaction count
-        player_indices = np.repeat(
-            np.arange(len(players)), interactions_array
-        )
+        player_indices = np.repeat(np.arange(len(players)), interactions_array)
         churn_flags = players["about_to_churn"].to_numpy()
         avg_multipliers = players["avg_multiplier"].to_numpy()
 
@@ -116,15 +112,16 @@ class CoinFlipSimulator:
         interaction_points_scaled = interaction_points * flat_multipliers
 
         # Build success distribution: count how many interactions ended at each depth
-        success_counts: dict[int, int] = {}
-        for depth in range(max_s + 1):
-            success_counts[depth] = int(np.sum(success_depth == depth))
+        counts = np.bincount(success_depth.astype(int), minlength=config.max_successes + 1)
+        success_counts = {depth: int(counts[depth]) for depth in range(config.max_successes + 1)}
 
         # 9. Aggregate back to player level with Polars
-        interaction_df = pl.DataFrame({
-            "player_idx": player_indices.astype(np.int64),
-            "points": interaction_points_scaled,
-        })
+        interaction_df = pl.DataFrame(
+            {
+                "player_idx": player_indices.astype(np.int64),
+                "points": interaction_points_scaled,
+            }
+        )
 
         agg_df = interaction_df.group_by("player_idx").agg(
             pl.col("points").sum().alias("total_points"),
@@ -132,9 +129,11 @@ class CoinFlipSimulator:
         )
 
         # Join back to the original players (preserving order)
-        player_idx_df = pl.DataFrame({
-            "player_idx": np.arange(len(players), dtype=np.int64),
-        })
+        player_idx_df = pl.DataFrame(
+            {
+                "player_idx": np.arange(len(players), dtype=np.int64),
+            }
+        )
 
         merged = player_idx_df.join(agg_df, on="player_idx", how="left").with_columns(
             pl.col("total_points").fill_null(0.0),
@@ -148,9 +147,7 @@ class CoinFlipSimulator:
 
         total_points = float(player_results["total_points"].sum())
         players_above = int(
-            player_results.filter(
-                pl.col("total_points") > config.reward_threshold
-            ).height
+            player_results.filter(pl.col("total_points") > config.reward_threshold).height
         )
 
         return CoinFlipResult(
@@ -180,7 +177,6 @@ class CoinFlipSimulator:
                 )
         return errors
 
-
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
@@ -204,5 +200,3 @@ class CoinFlipSimulator:
             players_above_threshold=0,
             threshold=config.reward_threshold,
         )
-
-

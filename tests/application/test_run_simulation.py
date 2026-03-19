@@ -115,9 +115,7 @@ class TestHappyPath:
     ) -> None:
         """Player results DataFrame contains total_points and num_interactions."""
         use_case = RunSimulationUseCase(reader=reader, simulator=simulator)
-        result = use_case.execute(
-            player_source=sample_input_csv, config=coin_flip_config, seed=42
-        )
+        result = use_case.execute(player_source=sample_input_csv, config=coin_flip_config, seed=42)
 
         assert "total_points" in result.player_results.columns
         assert "num_interactions" in result.player_results.columns
@@ -143,9 +141,7 @@ class TestOutputWriting:
     ) -> None:
         """A CSV file is created at the output destination."""
         output_path = str(tmp_path / "output.csv")
-        use_case = RunSimulationUseCase(
-            reader=reader, simulator=simulator, writer=writer
-        )
+        use_case = RunSimulationUseCase(reader=reader, simulator=simulator, writer=writer)
         use_case.execute(
             player_source=sample_input_csv,
             config=coin_flip_config,
@@ -167,9 +163,7 @@ class TestOutputWriting:
         tmp_path: Any,
     ) -> None:
         """No file is created when output_destination is None."""
-        use_case = RunSimulationUseCase(
-            reader=reader, simulator=simulator, writer=writer
-        )
+        use_case = RunSimulationUseCase(reader=reader, simulator=simulator, writer=writer)
         result = use_case.execute(
             player_source=sample_input_csv,
             config=coin_flip_config,
@@ -191,9 +185,7 @@ class TestOutputWriting:
         tmp_path: Any,
     ) -> None:
         """No error even when writer is None and destination is provided."""
-        use_case = RunSimulationUseCase(
-            reader=reader, simulator=simulator, writer=None
-        )
+        use_case = RunSimulationUseCase(reader=reader, simulator=simulator, writer=None)
         # Should not raise even though destination is given but writer is None
         result = use_case.execute(
             player_source=sample_input_csv,
@@ -223,10 +215,12 @@ class TestValidationErrors:
         """Missing required column triggers ValueError from validator."""
         bad_csv = tmp_path / "bad_players.csv"
         # Missing rolls_sink and avg_multiplier columns
-        pl.DataFrame({
-            "user_id": [1, 2],
-            "about_to_churn": [False, True],
-        }).write_csv(str(bad_csv))
+        pl.DataFrame(
+            {
+                "user_id": [1, 2],
+                "about_to_churn": [False, True],
+            }
+        ).write_csv(str(bad_csv))
 
         use_case = RunSimulationUseCase(reader=reader, simulator=simulator)
 
@@ -246,10 +240,12 @@ class TestValidationErrors:
         """Multiple validation errors are joined into one message."""
         bad_csv = tmp_path / "bad_players.csv"
         # Missing both rolls_sink and avg_multiplier
-        pl.DataFrame({
-            "user_id": [1, 2],
-            "about_to_churn": [False, True],
-        }).write_csv(str(bad_csv))
+        pl.DataFrame(
+            {
+                "user_id": [1, 2],
+                "about_to_churn": [False, True],
+            }
+        ).write_csv(str(bad_csv))
 
         # Use a reader that does NOT raise on its own validation,
         # so the use case's simulator validation can catch the errors.
@@ -265,9 +261,7 @@ class TestValidationErrors:
             def validate_players(self, df: pl.DataFrame) -> list[str]:
                 return []
 
-        use_case = RunSimulationUseCase(
-            reader=PassThroughReader(), simulator=simulator
-        )
+        use_case = RunSimulationUseCase(reader=PassThroughReader(), simulator=simulator)
 
         with pytest.raises(ValueError, match="Input validation failed") as exc_info:
             use_case.execute(
@@ -298,9 +292,7 @@ class TestSimulationStore:
         mock_store: MagicMock,
     ) -> None:
         """store.save_run is invoked with config and result summary."""
-        use_case = RunSimulationUseCase(
-            reader=reader, simulator=simulator, store=mock_store
-        )
+        use_case = RunSimulationUseCase(reader=reader, simulator=simulator, store=mock_store)
         use_case.execute(
             player_source=sample_input_csv,
             config=coin_flip_config,
@@ -321,9 +313,7 @@ class TestSimulationStore:
         simulator: CoinFlipSimulator,
     ) -> None:
         """No error when store is None."""
-        use_case = RunSimulationUseCase(
-            reader=reader, simulator=simulator, store=None
-        )
+        use_case = RunSimulationUseCase(reader=reader, simulator=simulator, store=None)
         # Should complete without error
         result = use_case.execute(
             player_source=sample_input_csv,
@@ -410,14 +400,10 @@ class TestIntegrationWithCSVFiles:
         """Full pipeline: read CSV → parse config → simulate → write output."""
         # Read config CSV and build CoinFlipConfig
         config_dict = reader.read_config(sample_config_csv)
-        config = CoinFlipConfig.from_csv_dict(
-            {k: str(v) for k, v in config_dict.items()}
-        )
+        config = CoinFlipConfig.from_csv_dict({k: str(v) for k, v in config_dict.items()})
 
         output_path = str(tmp_path / "results.csv")
-        use_case = RunSimulationUseCase(
-            reader=reader, simulator=simulator, writer=writer
-        )
+        use_case = RunSimulationUseCase(reader=reader, simulator=simulator, writer=writer)
         result = use_case.execute(
             player_source=sample_input_csv,
             config=config,

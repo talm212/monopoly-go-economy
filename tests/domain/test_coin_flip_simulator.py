@@ -122,9 +122,7 @@ class TestCoinFlipSimulatorInteractions:
         config = _make_config(sample_config_dict)
         result = sim.simulate(sample_players_df, config, seed=42)
         # Keys should be 0..max_successes
-        assert set(result.success_counts.keys()) == set(
-            range(config.max_successes + 1)
-        )
+        assert set(result.success_counts.keys()) == set(range(config.max_successes + 1))
 
 
 # ---------------------------------------------------------------------------
@@ -180,12 +178,14 @@ class TestCoinFlipSimulatorChurnBoost:
         """Run with enough players so statistical effect is clear."""
         rng = np.random.default_rng(seed=123)
         n = 5000
-        players = pl.DataFrame({
-            "user_id": list(range(1, n + 1)),
-            "rolls_sink": [100] * n,
-            "avg_multiplier": [10] * n,
-            "about_to_churn": [True] * (n // 2) + [False] * (n // 2),
-        })
+        players = pl.DataFrame(
+            {
+                "user_id": list(range(1, n + 1)),
+                "rolls_sink": [100] * n,
+                "avg_multiplier": [10] * n,
+                "about_to_churn": [True] * (n // 2) + [False] * (n // 2),
+            }
+        )
         config = CoinFlipConfig(
             max_successes=5,
             probabilities=[0.6, 0.5, 0.5, 0.5, 0.5],
@@ -211,12 +211,14 @@ class TestCoinFlipSimulatorEdgeCases:
 
     def test_zero_interactions_player(self) -> None:
         """Player with rolls_sink < avg_multiplier gets 0 interactions and 0 points."""
-        players = pl.DataFrame({
-            "user_id": [1],
-            "rolls_sink": [5],
-            "avg_multiplier": [10],
-            "about_to_churn": [False],
-        })
+        players = pl.DataFrame(
+            {
+                "user_id": [1],
+                "rolls_sink": [5],
+                "avg_multiplier": [10],
+                "about_to_churn": [False],
+            }
+        )
         config = CoinFlipConfig(
             max_successes=5,
             probabilities=[0.6, 0.5, 0.5, 0.5, 0.5],
@@ -230,12 +232,14 @@ class TestCoinFlipSimulatorEdgeCases:
 
     def test_max_successes_one(self) -> None:
         """Single-flip chain: each interaction is either 0 or 1 success."""
-        players = pl.DataFrame({
-            "user_id": [1],
-            "rolls_sink": [1000],
-            "avg_multiplier": [1],
-            "about_to_churn": [False],
-        })
+        players = pl.DataFrame(
+            {
+                "user_id": [1],
+                "rolls_sink": [1000],
+                "avg_multiplier": [1],
+                "about_to_churn": [False],
+            }
+        )
         config = CoinFlipConfig(
             max_successes=1,
             probabilities=[0.5],
@@ -248,12 +252,14 @@ class TestCoinFlipSimulatorEdgeCases:
         assert sum(result.success_counts.values()) == 1000
 
     def test_all_players_zero_interactions(self) -> None:
-        players = pl.DataFrame({
-            "user_id": [1, 2, 3],
-            "rolls_sink": [1, 2, 3],
-            "avg_multiplier": [10, 10, 10],
-            "about_to_churn": [False, False, False],
-        })
+        players = pl.DataFrame(
+            {
+                "user_id": [1, 2, 3],
+                "rolls_sink": [1, 2, 3],
+                "avg_multiplier": [10, 10, 10],
+                "about_to_churn": [False, False, False],
+            }
+        )
         config = CoinFlipConfig(
             max_successes=5,
             probabilities=[0.6, 0.5, 0.5, 0.5, 0.5],
@@ -266,12 +272,14 @@ class TestCoinFlipSimulatorEdgeCases:
 
     def test_probability_one_always_succeeds(self) -> None:
         """With probability=1.0 for all flips, every interaction reaches max depth."""
-        players = pl.DataFrame({
-            "user_id": [1],
-            "rolls_sink": [100],
-            "avg_multiplier": [1],
-            "about_to_churn": [False],
-        })
+        players = pl.DataFrame(
+            {
+                "user_id": [1],
+                "rolls_sink": [100],
+                "avg_multiplier": [1],
+                "about_to_churn": [False],
+            }
+        )
         config = CoinFlipConfig(
             max_successes=3,
             probabilities=[1.0, 1.0, 1.0],
@@ -286,12 +294,14 @@ class TestCoinFlipSimulatorEdgeCases:
 
     def test_probability_zero_always_fails(self) -> None:
         """With probability=0.0 for first flip, all interactions get 0 successes."""
-        players = pl.DataFrame({
-            "user_id": [1],
-            "rolls_sink": [100],
-            "avg_multiplier": [1],
-            "about_to_churn": [False],
-        })
+        players = pl.DataFrame(
+            {
+                "user_id": [1],
+                "rolls_sink": [100],
+                "avg_multiplier": [1],
+                "about_to_churn": [False],
+            }
+        )
         config = CoinFlipConfig(
             max_successes=3,
             probabilities=[0.0, 1.0, 1.0],
@@ -363,12 +373,14 @@ class TestCoinFlipResultMethods:
 
     def test_players_above_threshold(self) -> None:
         """Threshold counting should be accurate."""
-        players = pl.DataFrame({
-            "user_id": [1, 2],
-            "rolls_sink": [1000, 10],
-            "avg_multiplier": [1, 1],
-            "about_to_churn": [False, False],
-        })
+        players = pl.DataFrame(
+            {
+                "user_id": [1, 2],
+                "rolls_sink": [1000, 10],
+                "avg_multiplier": [1, 1],
+                "about_to_churn": [False, False],
+            }
+        )
         config = CoinFlipConfig(
             max_successes=5,
             probabilities=[1.0, 1.0, 1.0, 1.0, 1.0],
@@ -412,6 +424,20 @@ class TestCoinFlipSimulatorProtocol:
 
 class TestCoinFlipSimulatorValidation:
     """Verify input validation catches bad DataFrames."""
+
+    def test_zero_avg_multiplier_returns_validation_error(self) -> None:
+        players = pl.DataFrame(
+            {
+                "user_id": [1],
+                "rolls_sink": [100],
+                "avg_multiplier": [0],
+                "about_to_churn": [False],
+            }
+        )
+        simulator = CoinFlipSimulator()
+        errors = simulator.validate_input(players)
+        assert len(errors) > 0
+        assert "avg_multiplier" in errors[0]
 
     def test_valid_input_returns_no_errors(
         self,
@@ -458,14 +484,14 @@ class TestCoinFlipSimulatorPerformance:
     def test_100k_players_under_5_seconds(self) -> None:
         rng = np.random.default_rng(seed=77)
         n = 100_000
-        players = pl.DataFrame({
-            "user_id": list(range(1, n + 1)),
-            "rolls_sink": rng.integers(50, 2000, size=n).tolist(),
-            "avg_multiplier": rng.choice([1, 2, 5, 10, 20, 50], size=n).tolist(),
-            "about_to_churn": rng.choice(
-                [True, False], size=n, p=[0.1, 0.9]
-            ).tolist(),
-        })
+        players = pl.DataFrame(
+            {
+                "user_id": list(range(1, n + 1)),
+                "rolls_sink": rng.integers(50, 2000, size=n).tolist(),
+                "avg_multiplier": rng.choice([1, 2, 5, 10, 20, 50], size=n).tolist(),
+                "about_to_churn": rng.choice([True, False], size=n, p=[0.1, 0.9]).tolist(),
+            }
+        )
         config = CoinFlipConfig(
             max_successes=5,
             probabilities=[0.60, 0.50, 0.50, 0.50, 0.50],

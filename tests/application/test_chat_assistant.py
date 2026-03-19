@@ -295,8 +295,7 @@ class TestChatAssistant:
         )
 
         system_arg = (
-            mock_llm.complete.call_args[1].get("system")
-            or mock_llm.complete.call_args[0][1]
+            mock_llm.complete.call_args[1].get("system") or mock_llm.complete.call_args[0][1]
         )
         assert "data analyst" in system_arg.lower()
         assert "Monopoly Go" in system_arg

@@ -3,6 +3,7 @@
 Upload data, configure parameters, run simulation, and analyze results
 all within one page using Streamlit tabs.
 """
+
 from __future__ import annotations
 
 import logging
@@ -236,12 +237,14 @@ def _render_run_tab() -> None:
             # Auto-save to history
             try:
                 store = LocalSimulationStore()
-                store.save_run({
-                    "feature": "coin_flip",
-                    "config": config.to_dict(),
-                    "result_summary": result.to_summary_dict(),
-                    "distribution": result.get_distribution(),
-                })
+                store.save_run(
+                    {
+                        "feature": "coin_flip",
+                        "config": config.to_dict(),
+                        "result_summary": result.to_summary_dict(),
+                        "distribution": result.get_distribution(),
+                    }
+                )
             except Exception:
                 logger.exception("Failed to auto-save simulation run")
 
@@ -259,12 +262,15 @@ def _render_run_tab() -> None:
         st.markdown("---")
         st.subheader("Quick Summary")
         raw_kpis = result.get_kpi_metrics()
-        render_kpi_cards({
-            "Mean Points / Player": raw_kpis["mean_points_per_player"],
-            "Median Points / Player": raw_kpis["median_points_per_player"],
-            "Total Points": raw_kpis["total_points"],
-            "% Above Threshold": round(raw_kpis["pct_above_threshold"] * 100, 2),
-        }, columns=4)
+        render_kpi_cards(
+            {
+                "Mean Points / Player": raw_kpis["mean_points_per_player"],
+                "Median Points / Player": raw_kpis["median_points_per_player"],
+                "Total Points": raw_kpis["total_points"],
+                "% Above Threshold": round(raw_kpis["pct_above_threshold"] * 100, 2),
+            },
+            columns=4,
+        )
 
         distribution = result.get_distribution()
         if distribution:
@@ -291,12 +297,15 @@ def _render_results_tab() -> None:
     # KPI Cards
     st.subheader("Key Performance Indicators")
     raw = result.get_kpi_metrics()
-    render_kpi_cards({
-        "Mean Points / Player": raw["mean_points_per_player"],
-        "Median Points / Player": raw["median_points_per_player"],
-        "Total Points": raw["total_points"],
-        "% Above Threshold": round(raw["pct_above_threshold"] * 100, 2),
-    }, columns=4)
+    render_kpi_cards(
+        {
+            "Mean Points / Player": raw["mean_points_per_player"],
+            "Median Points / Player": raw["median_points_per_player"],
+            "Total Points": raw["total_points"],
+            "% Above Threshold": round(raw["pct_above_threshold"] * 100, 2),
+        },
+        columns=4,
+    )
 
     # CSV Download
     csv_data = result.to_dataframe().write_csv()
@@ -322,14 +331,26 @@ def _render_results_tab() -> None:
             alt.Chart(player_results)
             .mark_bar(color=_CHART_COLOR_PRIMARY)
             .encode(
-                x=alt.X("total_points:Q", bin=alt.Bin(maxbins=_POINTS_HISTOGRAM_BINS), title="Total Points"),
+                x=alt.X(
+                    "total_points:Q",
+                    bin=alt.Bin(maxbins=_POINTS_HISTOGRAM_BINS),
+                    title="Total Points",
+                ),
                 y=alt.Y("count()", title="Number of Players"),
                 tooltip=[
-                    alt.Tooltip("total_points:Q", bin=alt.Bin(maxbins=_POINTS_HISTOGRAM_BINS), title="Points Range"),
+                    alt.Tooltip(
+                        "total_points:Q",
+                        bin=alt.Bin(maxbins=_POINTS_HISTOGRAM_BINS),
+                        title="Points Range",
+                    ),
                     alt.Tooltip("count()", title="Players"),
                 ],
             )
-            .properties(title="Points Distribution Across Players", width="container", height=_CHART_HEIGHT)
+            .properties(
+                title="Points Distribution Across Players",
+                width="container",
+                height=_CHART_HEIGHT,
+            )
         )
         st.altair_chart(chart, use_container_width=True)
 
@@ -338,8 +359,8 @@ def _render_results_tab() -> None:
     # Churn vs Non-Churn
     st.subheader("Churn vs Non-Churn Comparison")
     if "about_to_churn" in player_results.columns:
-        churn_df = player_results.filter(pl.col("about_to_churn") == True)  # noqa: E712
-        non_churn_df = player_results.filter(pl.col("about_to_churn") == False)  # noqa: E712
+        churn_df = player_results.filter(pl.col("about_to_churn"))
+        non_churn_df = player_results.filter(~pl.col("about_to_churn"))
 
         col_churn, col_non_churn = st.columns(2)
         with col_churn:
@@ -382,11 +403,13 @@ def _render_segment_metrics(segment: pl.DataFrame, label: str) -> None:
 st.header("Coin Flip Simulator")
 st.markdown("Upload data, configure parameters, run simulation, and analyze results.")
 
-tab_upload, tab_run, tab_results = st.tabs([
-    "Upload & Configure",
-    "Run Simulation",
-    "Results & Analysis",
-])
+tab_upload, tab_run, tab_results = st.tabs(
+    [
+        "Upload & Configure",
+        "Run Simulation",
+        "Results & Analysis",
+    ]
+)
 
 with tab_upload:
     _render_upload_tab()

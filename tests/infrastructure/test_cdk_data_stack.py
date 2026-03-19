@@ -142,9 +142,7 @@ class TestDataStackDynamoDB:
             {
                 "KeySchema": Match.array_with(
                     [
-                        Match.object_like(
-                            {"AttributeName": "run_id", "KeyType": "HASH"}
-                        ),
+                        Match.object_like({"AttributeName": "run_id", "KeyType": "HASH"}),
                     ]
                 ),
             },
@@ -157,9 +155,7 @@ class TestDataStackDynamoDB:
             {
                 "KeySchema": Match.array_with(
                     [
-                        Match.object_like(
-                            {"AttributeName": "created_at", "KeyType": "RANGE"}
-                        ),
+                        Match.object_like({"AttributeName": "created_at", "KeyType": "RANGE"}),
                     ]
                 ),
             },

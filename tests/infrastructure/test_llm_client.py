@@ -29,9 +29,7 @@ class TestLLMClientProtocol:
     """Verify LLMClient protocol is @runtime_checkable and adapters conform."""
 
     def test_anthropic_adapter_implements_protocol(self) -> None:
-        with patch(
-            "src.infrastructure.llm.anthropic_adapter.AsyncAnthropic"
-        ):
+        with patch("src.infrastructure.llm.anthropic_adapter.AsyncAnthropic"):
             adapter = AnthropicAdapter(api_key="test-key")
         assert isinstance(adapter, LLMClient)
 
@@ -156,16 +154,16 @@ class TestBedrockAdapter:
     @pytest.mark.asyncio
     async def test_complete_calls_bedrock(self) -> None:
         mock_bedrock_client = MagicMock()
-        response_body = json.dumps({
-            "content": [{"text": "Hello from Bedrock"}],
-        }).encode()
+        response_body = json.dumps(
+            {
+                "content": [{"text": "Hello from Bedrock"}],
+            }
+        ).encode()
         mock_body = MagicMock()
         mock_body.read.return_value = response_body
         mock_bedrock_client.invoke_model.return_value = {"body": mock_body}
 
-        with patch(
-            "src.infrastructure.llm.bedrock_adapter.boto3"
-        ) as mock_boto3:
+        with patch("src.infrastructure.llm.bedrock_adapter.boto3") as mock_boto3:
             mock_boto3.client.return_value = mock_bedrock_client
             adapter = BedrockAdapter()
 
@@ -180,16 +178,16 @@ class TestBedrockAdapter:
     @pytest.mark.asyncio
     async def test_complete_returns_string(self) -> None:
         mock_bedrock_client = MagicMock()
-        response_body = json.dumps({
-            "content": [{"text": "test response"}],
-        }).encode()
+        response_body = json.dumps(
+            {
+                "content": [{"text": "test response"}],
+            }
+        ).encode()
         mock_body = MagicMock()
         mock_body.read.return_value = response_body
         mock_bedrock_client.invoke_model.return_value = {"body": mock_body}
 
-        with patch(
-            "src.infrastructure.llm.bedrock_adapter.boto3"
-        ) as mock_boto3:
+        with patch("src.infrastructure.llm.bedrock_adapter.boto3") as mock_boto3:
             mock_boto3.client.return_value = mock_bedrock_client
             adapter = BedrockAdapter()
 
@@ -200,16 +198,16 @@ class TestBedrockAdapter:
     @pytest.mark.asyncio
     async def test_complete_passes_system_prompt(self) -> None:
         mock_bedrock_client = MagicMock()
-        response_body = json.dumps({
-            "content": [{"text": "response"}],
-        }).encode()
+        response_body = json.dumps(
+            {
+                "content": [{"text": "response"}],
+            }
+        ).encode()
         mock_body = MagicMock()
         mock_body.read.return_value = response_body
         mock_bedrock_client.invoke_model.return_value = {"body": mock_body}
 
-        with patch(
-            "src.infrastructure.llm.bedrock_adapter.boto3"
-        ) as mock_boto3:
+        with patch("src.infrastructure.llm.bedrock_adapter.boto3") as mock_boto3:
             mock_boto3.client.return_value = mock_bedrock_client
             adapter = BedrockAdapter()
 
@@ -222,16 +220,16 @@ class TestBedrockAdapter:
     @pytest.mark.asyncio
     async def test_complete_sends_correct_model_id(self) -> None:
         mock_bedrock_client = MagicMock()
-        response_body = json.dumps({
-            "content": [{"text": "response"}],
-        }).encode()
+        response_body = json.dumps(
+            {
+                "content": [{"text": "response"}],
+            }
+        ).encode()
         mock_body = MagicMock()
         mock_body.read.return_value = response_body
         mock_bedrock_client.invoke_model.return_value = {"body": mock_body}
 
-        with patch(
-            "src.infrastructure.llm.bedrock_adapter.boto3"
-        ) as mock_boto3:
+        with patch("src.infrastructure.llm.bedrock_adapter.boto3") as mock_boto3:
             mock_boto3.client.return_value = mock_bedrock_client
             adapter = BedrockAdapter(
                 model_id="anthropic.claude-sonnet-4-20250514-v1:0",
@@ -263,6 +261,7 @@ class TestGetLlmClient:
         ):
             # Remove LLM_PROVIDER if set
             import os
+
             env = os.environ.copy()
             env.pop("LLM_PROVIDER", None)
             with patch.dict("os.environ", env, clear=True):

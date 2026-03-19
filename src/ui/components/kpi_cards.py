@@ -1,4 +1,5 @@
 """Reusable KPI metric cards displayed in a responsive column layout."""
+
 from __future__ import annotations
 
 import logging
@@ -36,5 +37,5 @@ def render_kpi_cards(
     for batch_start in range(0, len(metric_items), columns):
         batch = metric_items[batch_start : batch_start + columns]
         cols = st.columns(columns)
-        for col, (label, value) in zip(cols, batch):
+        for col, (label, value) in zip(cols, batch, strict=False):
             col.metric(label=label, value=_format_value(value))

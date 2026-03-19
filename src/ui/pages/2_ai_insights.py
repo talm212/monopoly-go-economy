@@ -1,4 +1,5 @@
 """AI Insights dashboard — LLM-powered analysis of simulation results."""
+
 from __future__ import annotations
 
 import logging
@@ -42,12 +43,12 @@ def _render_severity_badge(severity: Severity) -> str:
     label = _SEVERITY_LABELS[severity]
     return (
         f'<span style="background-color:{color};color:white;'
-        f'padding:2px 10px;border-radius:12px;font-size:0.85em;'
+        f"padding:2px 10px;border-radius:12px;font-size:0.85em;"
         f'font-weight:600;">{label}</span>'
     )
 
 
-def _render_insight_card(insight: Insight, index: int) -> None:
+def _render_insight_card(insight: Insight) -> None:
     """Render a single insight as a styled card."""
     badge_html = _render_severity_badge(insight.severity)
 
@@ -194,7 +195,7 @@ cached_insights: list[Insight] | None = st.session_state.get("ai_insights")
 
 if cached_insights:
     st.subheader(f"Analysis ({len(cached_insights)} insights)")
-    for idx, insight in enumerate(cached_insights):
-        _render_insight_card(insight, idx)
+    for insight in cached_insights:
+        _render_insight_card(insight)
 elif existing_insights is None and not generate_clicked:
     st.info("Click **Generate Insights** to analyze your simulation results with AI.")

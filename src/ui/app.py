@@ -1,4 +1,5 @@
 """Main entry point for the Monopoly Go Economy Simulator dashboard."""
+
 from __future__ import annotations
 
 import streamlit as st
@@ -24,4 +25,7 @@ st.markdown("- **Coin Flip** — simulate coin flip mechanics with configurable 
 st.markdown("- **AI Insights** — LLM-powered analysis, chat, and config optimization")
 st.markdown("- **History** — browse, compare, and manage past simulation runs")
 st.markdown("### Getting Started")
-st.markdown("Select **Coin Flip** from the sidebar to upload data, run simulations, and view results — all in one page.")
+st.markdown(
+    "Select **Coin Flip** from the sidebar to upload data, "
+    "run simulations, and view results — all in one page."
+)
