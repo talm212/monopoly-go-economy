@@ -7,9 +7,12 @@ imports — all dependencies are injected through the constructor.
 from __future__ import annotations
 
 import logging
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 import polars as pl
+
+if TYPE_CHECKING:
+    from src.domain.protocols import Simulator, SimulatorConfig, SimulationResult
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +57,7 @@ class RunSimulationUseCase:
     def __init__(
         self,
         reader: DataReaderProtocol,
-        simulator: Any,  # Simulator protocol
+        simulator: Simulator,
         writer: DataWriterProtocol | None = None,
         store: SimulationStoreProtocol | None = None,
     ) -> None:
@@ -66,10 +69,10 @@ class RunSimulationUseCase:
     def execute(
         self,
         player_source: str,
-        config: Any,  # SimulatorConfig
+        config: SimulatorConfig,
         output_destination: str | None = None,
         seed: int | None = None,
-    ) -> Any:  # SimulationResult
+    ) -> SimulationResult:
         """Run the full simulation pipeline.
 
         Steps:

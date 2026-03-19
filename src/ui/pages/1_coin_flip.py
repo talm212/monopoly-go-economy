@@ -15,6 +15,7 @@ import streamlit as st
 from src.domain.models.coin_flip import CoinFlipConfig, CoinFlipResult
 from src.domain.simulators.coin_flip import CoinFlipSimulator
 from src.infrastructure.readers.local_reader import LocalDataReader
+from src.infrastructure.readers.normalize import normalize_churn_column
 from src.infrastructure.store.local_store import LocalSimulationStore
 from src.ui.components.config_editor import render_config_editor
 from src.ui.components.distribution_chart import render_distribution_chart
@@ -109,19 +110,7 @@ def _render_upload_tab() -> None:
             with st.expander("Preview (first 10 rows)", expanded=False):
                 st.dataframe(player_df.head(10), use_container_width=True)
 
-            if "about_to_churn" not in player_df.columns:
-                player_df = player_df.with_columns(pl.lit(False).alias("about_to_churn"))
-            elif player_df["about_to_churn"].dtype == pl.Utf8:
-                player_df = player_df.with_columns(
-                    pl.col("about_to_churn")
-                    .str.to_lowercase()
-                    .map_elements(
-                        lambda v: v == "true" if v is not None else False,
-                        return_dtype=pl.Boolean,
-                    )
-                    .alias("about_to_churn")
-                )
-
+            player_df = normalize_churn_column(player_df)
             st.session_state["player_data"] = player_df
     else:
         st.info("Please upload a player CSV to get started.")

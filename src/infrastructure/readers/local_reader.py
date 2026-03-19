@@ -12,6 +12,8 @@ from typing import Any
 
 import polars as pl
 
+from src.infrastructure.readers.normalize import normalize_churn_column
+
 logger = logging.getLogger(__name__)
 
 _REQUIRED_PLAYER_COLUMNS: list[str] = ["user_id", "rolls_sink", "avg_multiplier"]
@@ -37,27 +39,8 @@ class LocalDataReader:
         logger.info("Reading player data from %s", source)
         df = pl.read_csv(source)
 
-        # Normalise the about_to_churn column: add default if absent,
-        # cast string TRUE/FALSE to boolean if needed.
-        if "about_to_churn" not in df.columns:
-            logger.info("about_to_churn column missing — defaulting to False")
-            df = df.with_columns(pl.lit(False).alias("about_to_churn"))
-        else:
-            col = df["about_to_churn"]
-            if col.dtype == pl.Utf8:
-                df = df.with_columns(
-                    pl.col("about_to_churn")
-                    .str.to_lowercase()
-                    .map_elements(
-                        lambda v: v == "true" if v is not None else False,
-                        return_dtype=pl.Boolean,
-                    )
-                    .alias("about_to_churn")
-                )
-            elif col.dtype != pl.Boolean:
-                df = df.with_columns(
-                    pl.col("about_to_churn").cast(pl.Boolean)
-                )
+        # Normalise the about_to_churn column (vectorized, no Python lambdas)
+        df = normalize_churn_column(df)
 
         # Validate and raise on errors
         errors = self.validate_players(df)
