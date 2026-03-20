@@ -927,16 +927,33 @@ if has_any_result:
 
     if sim_result is not None:
         _result_summary = sim_result.to_summary_dict()
+        _result_summary.update(sim_result.get_kpi_metrics())
         _distribution = sim_result.get_distribution()
         _kpi_metrics = sim_result.get_kpi_metrics()
+
+        # Add churn segment breakdown for AI context
+        _player_results = sim_result.player_results
+        if "about_to_churn" in _player_results.columns:
+            _churn_df = _player_results.filter(pl.col("about_to_churn"))
+            _non_churn_df = _player_results.filter(~pl.col("about_to_churn"))
+            _result_summary["churn_segment"] = {
+                "churn_player_count": _churn_df.height,
+                "churn_mean_points": float(_churn_df["total_points"].mean() or 0),
+                "churn_median_points": float(_churn_df["total_points"].median() or 0),
+                "churn_total_points": float(_churn_df["total_points"].sum() or 0),
+                "non_churn_player_count": _non_churn_df.height,
+                "non_churn_mean_points": float(_non_churn_df["total_points"].mean() or 0),
+                "non_churn_median_points": float(_non_churn_df["total_points"].median() or 0),
+                "non_churn_total_points": float(_non_churn_df["total_points"].sum() or 0),
+            }
     elif loaded_summary:
         _result_summary = loaded_summary
         _distribution = {str(k): int(v) for k, v in (loaded_distribution or {}).items()}
         _kpi_metrics = {
             "total_points": loaded_summary.get("total_points", 0),
-            "mean_points_per_player": 0.0,
-            "median_points_per_player": 0.0,
-            "pct_above_threshold": 0.0,
+            "mean_points_per_player": loaded_summary.get("mean_points_per_player", 0.0),
+            "median_points_per_player": loaded_summary.get("median_points_per_player", 0.0),
+            "pct_above_threshold": loaded_summary.get("pct_above_threshold", 0.0),
         }
     else:
         _result_summary = {}
