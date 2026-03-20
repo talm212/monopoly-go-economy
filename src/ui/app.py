@@ -583,96 +583,96 @@ with _setup_container:
                     st.error(f"Config validation error: {exc}")
                     st.session_state.pop("config", None)
 
-    # --- Seed + Run button + readiness ---
-    has_players = "player_data" in st.session_state
-    has_config = "config" in st.session_state
+    # (Seed + Run button are placed outside the setup container below)
 
-    # Status message
-    loaded_from_history = loaded_summary is not None and sim_result is None
-    if has_players and has_config:
-        st.success("Ready to simulate")
-    elif loaded_from_history and has_config and not has_players:
-        st.warning("Upload player data to re-run with this config")
-    elif not has_players and not has_config:
-        st.info("Upload player data and config to get started")
-    elif not has_players:
-        st.warning("Upload player data to continue")
-    else:
-        st.warning("Upload config to continue")
+# --- Seed + Run button + readiness (always visible) ---
+has_players = "player_data" in st.session_state
+has_config = "config" in st.session_state
 
-    # Seed + Run on one row — both use number_input height trick for alignment
-    seed_col, run_col = st.columns([1, 3])
+# Status message
+loaded_from_history = loaded_summary is not None and sim_result is None
+if has_players and has_config:
+    st.success("Ready to simulate")
+elif loaded_from_history and has_config and not has_players:
+    st.warning("Upload player data to re-run with this config")
+elif not has_players and not has_config:
+    st.info("Upload player data and config to get started")
+elif not has_players:
+    st.warning("Upload player data to continue")
+else:
+    st.warning("Upload config to continue")
 
-    with seed_col:
-        seed_input = st.number_input(
-            "Seed (optional)",
-            min_value=0,
-            max_value=2**31 - 1,
-            value=None,
-            step=1,
-            placeholder="Random",
-            key="cf_seed",
-            help=(
-                "Seeds the NumPy random number generator.\n\n"
-                "All coin flip outcomes are generated at once as a random matrix.\n"
-                "Same seed + same data + same config = identical results every time."
-            ),
-        )
-        seed: int | None = int(seed_input) if seed_input is not None else None
+seed_col, run_col = st.columns([1, 3])
 
-    with run_col:
-        run_disabled = not (has_players and has_config)
-        # Use empty label to match number_input height
-        st.markdown(
-            '<p style="font-size:14px;margin-bottom:4px;">&nbsp;</p>',
-            unsafe_allow_html=True,
-        )
-        run_clicked = st.button(
-            "Run Simulation",
-            type="primary",
-            use_container_width=True,
-            key="cf_run",
-            disabled=run_disabled,
-        )
+with seed_col:
+    seed_input = st.number_input(
+        "Seed (optional)",
+        min_value=0,
+        max_value=2**31 - 1,
+        value=None,
+        step=1,
+        placeholder="Random",
+        key="cf_seed",
+        help=(
+            "Seeds the NumPy random number generator.\n\n"
+            "All coin flip outcomes are generated at once as a random matrix.\n"
+            "Same seed + same data + same config = identical results every time."
+        ),
+    )
+    seed: int | None = int(seed_input) if seed_input is not None else None
 
-    # --- Execute simulation ---
-    if run_clicked and has_players and has_config:
-        player_data_run: pl.DataFrame = st.session_state["player_data"]
-        config_run: CoinFlipConfig = st.session_state["config"]
+with run_col:
+    run_disabled = not (has_players and has_config)
+    st.markdown(
+        '<p style="font-size:14px;margin-bottom:4px;">&nbsp;</p>',
+        unsafe_allow_html=True,
+    )
+    run_clicked = st.button(
+        "Run Simulation",
+        type="primary",
+        use_container_width=True,
+        key="cf_run",
+        disabled=run_disabled,
+    )
 
+# --- Execute simulation ---
+if run_clicked and has_players and has_config:
+    player_data_run: pl.DataFrame = st.session_state["player_data"]
+    config_run: CoinFlipConfig = st.session_state["config"]
+
+    try:
+        with st.spinner("Running simulation..."):
+            simulator = CoinFlipSimulator()
+            result = simulator.simulate(player_data_run, config_run, seed=seed)
+
+        st.session_state["simulation_result"] = result
+        st.session_state["config_changed_since_run"] = False
+
+        # Clear stale AI data
+        _clear_stale_ai_data()
+
+        # Auto-save to history
         try:
-            with st.spinner("Running simulation..."):
-                simulator = CoinFlipSimulator()
-                result = simulator.simulate(player_data_run, config_run, seed=seed)
-
-            st.session_state["simulation_result"] = result
-            st.session_state["config_changed_since_run"] = False
-
-            # Clear stale AI data
-            _clear_stale_ai_data()
-
-            # Auto-save to history
-            try:
-                store.save_run(
-                    {
-                        "feature": "coin_flip",
-                        "config": config_run.to_dict(),
-                        "result_summary": result.to_summary_dict(),
-                        "distribution": result.get_distribution(),
-                    }
-                )
-            except Exception:
-                logger.exception("Failed to auto-save simulation run")
-
-            st.success(
-                f"Simulation complete -- {result.total_interactions:,} interactions "
-                f"across {player_data_run.height:,} players."
+            store.save_run(
+                {
+                    "feature": "coin_flip",
+                    "config": config_run.to_dict(),
+                    "result_summary": result.to_summary_dict(),
+                    "distribution": result.get_distribution(),
+                }
             )
-            st.rerun()
-
         except Exception:
-            logger.exception("Simulation failed")
-            st.error("Simulation failed. Check data and configuration.")
+            logger.exception("Failed to auto-save simulation run")
+
+        st.success(
+            f"Simulation complete -- {result.total_interactions:,} interactions "
+            f"across {player_data_run.height:,} players."
+        )
+        st.rerun()
+
+    except Exception:
+        logger.exception("Simulation failed")
+        st.error("Simulation failed. Check data and configuration.")
 
 # --- Stale config warning ---
 if _config_changed_since_last_run() and has_result:
