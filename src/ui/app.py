@@ -394,6 +394,8 @@ with st.sidebar:
                     _val = st.session_state.get(_key, "")
                     try:
                         store.update_run(_rid, {"name": _val})
+                        if _val:
+                            st.toast(f"Saved: {_val}")
                     except Exception:
                         logger.warning("Failed to rename run %s", _rid)
 
