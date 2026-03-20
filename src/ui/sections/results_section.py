@@ -1,7 +1,7 @@
 """Results section rendering for the simulation dashboard.
 
 Renders the Charts tab, Churn Analysis tab, and Data Table tab.
-Works with either a full simulation result or a loaded summary from history.
+Works with either a full ResultsDisplay object or a loaded summary from history.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import altair as alt
 import polars as pl
 import streamlit as st
 
-from src.domain.models.coin_flip import CoinFlipResult
+from src.domain.protocols import ResultsDisplay
 from src.ui.components.distribution_chart import render_distribution_chart
 from src.ui.components.segment_metrics import render_segment_metrics
 
@@ -31,14 +31,14 @@ _CHART_COLOR_PRIMARY = "#FF6B35"
 
 
 def render_results(
-    sim_result: CoinFlipResult | None,
+    display: ResultsDisplay | None,
     loaded_summary: dict[str, Any] | None,
     loaded_distribution: dict[str, Any] | None,
 ) -> None:
     """Render the Results section (Charts, Churn Analysis, Data Table).
 
     Args:
-        sim_result: Full simulation result (if a fresh simulation was run).
+        display: A ResultsDisplay-compatible object (e.g. CoinFlipResult).
         loaded_summary: Summary dict from a loaded past run.
         loaded_distribution: Distribution dict from a loaded past run.
     """
@@ -46,25 +46,25 @@ def render_results(
 
     # Get distribution from either full result or loaded history
     display_dist: dict[str, int] = {}
-    if sim_result is not None:
-        display_dist = sim_result.get_distribution()
+    if display is not None:
+        display_dist = display.get_distribution()
     elif loaded_distribution:
         display_dist = {str(k): int(v) for k, v in loaded_distribution.items()}
 
-    if sim_result is not None:
+    if display is not None:
         # Full result available -- show all tabs
         charts_tab, churn_tab, data_tab = st.tabs(
             ["Charts", "Churn Analysis", "Data Table"]
         )
 
         with charts_tab:
-            _render_charts_tab(sim_result, display_dist)
+            _render_charts_tab(display, display_dist)
 
         with churn_tab:
-            _render_churn_tab(sim_result)
+            _render_churn_tab(display)
 
         with data_tab:
-            _render_data_tab(sim_result)
+            _render_data_tab(display)
 
     else:
         # Loaded from history -- show distribution chart only (no player-level data)
@@ -86,7 +86,7 @@ def render_results(
 
 
 def _render_charts_tab(
-    sim_result: CoinFlipResult,
+    display: ResultsDisplay,
     display_dist: dict[str, int],
 ) -> None:
     """Render the Charts tab with distribution and points histogram."""
@@ -110,10 +110,10 @@ def _render_charts_tab(
             "Each flip i has probability p_success_i from config."
         )
     with chart_right:
-        player_results = sim_result.player_results
-        if not player_results.is_empty():
+        result_df = display.get_dataframe()
+        if not result_df.is_empty() and "total_points" in result_df.columns:
             points_hist = (
-                alt.Chart(player_results)
+                alt.Chart(result_df)
                 .mark_bar(color=_CHART_COLOR_PRIMARY)
                 .encode(
                     x=alt.X(
@@ -145,32 +145,96 @@ def _render_charts_tab(
             )
 
 
-def _render_churn_tab(sim_result: CoinFlipResult) -> None:
-    """Render the Churn Analysis tab."""
-    player_results = sim_result.player_results
+def _render_churn_tab(display: ResultsDisplay) -> None:
+    """Render the Churn Analysis tab using segment data from ResultsDisplay."""
     st.caption(
         "Segments players by about_to_churn flag from CSV. "
         "Churn players: each flip probability is multiplied by churn_boost_multiplier (default 1.3x), "
         "capped at 1.0. This means boosted_p = min(p_success_i * 1.3, 1.0). "
         "Compare metrics to see the effect of the churn boost on earnings."
     )
-    if "about_to_churn" in player_results.columns:
-        churn_df = player_results.filter(pl.col("about_to_churn"))
-        non_churn_df = player_results.filter(~pl.col("about_to_churn"))
-        col_churn, col_non_churn = st.columns(2)
-        with col_churn:
-            st.markdown("#### About-to-Churn Players")
-            render_segment_metrics(churn_df, "churn")
-        with col_non_churn:
-            st.markdown("#### Non-Churn Players")
-            render_segment_metrics(non_churn_df, "non-churn")
+
+    # Try protocol-based segment rendering first
+    segments = display.get_segments()
+    if segments is not None:
+        # Render each segment side by side
+        segment_names = list(segments.keys())
+        cols = st.columns(len(segment_names))
+        for col, seg_name in zip(cols, segment_names, strict=False):
+            with col:
+                title = seg_name.replace("-", " ").replace("_", " ").title()
+                st.markdown(f"#### {title} Players")
+                seg_metrics = segments[seg_name]
+                player_count = int(seg_metrics.get("Player Count", 0))
+                if player_count == 0:
+                    st.info(f"No {seg_name} players in this dataset.")
+                else:
+                    _render_segment_kpis(seg_metrics, seg_name)
     else:
-        st.info("No churn data available.")
+        # Fallback: try legacy DataFrame-based rendering
+        result_df = display.get_dataframe()
+        if "about_to_churn" in result_df.columns:
+            churn_df = result_df.filter(pl.col("about_to_churn"))
+            non_churn_df = result_df.filter(~pl.col("about_to_churn"))
+            col_churn, col_non_churn = st.columns(2)
+            with col_churn:
+                st.markdown("#### About-to-Churn Players")
+                render_segment_metrics(churn_df, "churn")
+            with col_non_churn:
+                st.markdown("#### Non-Churn Players")
+                render_segment_metrics(non_churn_df, "non-churn")
+        else:
+            st.info("No churn data available.")
 
 
-def _render_data_tab(sim_result: CoinFlipResult) -> None:
+def _render_segment_kpis(metrics: dict[str, float], label: str) -> None:
+    """Render KPI metrics for one segment from ResultsDisplay.get_segments()."""
+
+    def _fmt_num(v: float) -> str:
+        return f"{int(v):,}" if v == int(v) else f"{v:,.2f}"
+
+    player_count = int(metrics.get("Player Count", 0))
+    st.metric(
+        "Player Count",
+        f"{player_count:,}",
+        help=(
+            f"Count of players in the **{label}** segment.\n\n"
+            f"Segmented by the about_to_churn flag from the uploaded CSV."
+        ),
+    )
+    st.metric(
+        "Avg Points / Player",
+        _fmt_num(metrics.get("Avg Points / Player", 0.0)),
+        help=(
+            f"**Calculation:** sum(total_points) / count(players) for {label} segment\n\n"
+            f"**Churn boost:** players with about_to_churn=true get "
+            f"boosted_p = min(p_success_i * 1.3, 1.0)\n"
+            f"so their average is expected to be higher."
+        ),
+    )
+    st.metric(
+        "Median Points / Player",
+        _fmt_num(metrics.get("Median Points / Player", 0.0)),
+        help=(
+            f"Middle value of total_points for **{label}** players when sorted.\n\n"
+            f"Compare mean vs median to detect skew in the distribution."
+        ),
+    )
+    st.metric(
+        "Total Points",
+        _fmt_num(metrics.get("Total Points", 0.0)),
+        help=(
+            f"**Calculation:** sum(total_points) for all {label} players\n\n"
+            f"**Parameters:**\n"
+            f"- total_points = sum over interactions of "
+            f"(cumulative points at success depth * avg_multiplier)"
+        ),
+    )
+
+
+def _render_data_tab(display: ResultsDisplay) -> None:
     """Render the Data Table tab with download button."""
-    result_df = sim_result.to_dataframe()
+    result_df = display.get_dataframe()
     # Cache CSV export in session state to avoid re-serializing on every rerun
     if "cached_csv_data" not in st.session_state:
         st.session_state["cached_csv_data"] = result_df.write_csv()

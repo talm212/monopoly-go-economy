@@ -225,3 +225,158 @@ class TestToAnalysisContext:
         ctx = result_with_churn.to_analysis_context(config)
         with pytest.raises(AttributeError):
             ctx.feature_name = "other"  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# CoinFlipResult — ResultsDisplay protocol methods
+# ---------------------------------------------------------------------------
+
+
+class TestCoinFlipResultsDisplay:
+    """Verify CoinFlipResult satisfies the ResultsDisplay protocol contract."""
+
+    @pytest.fixture
+    def result_with_churn(self) -> CoinFlipResult:
+        df = pl.DataFrame(
+            {
+                "user_id": [1, 2, 3, 4],
+                "total_points": [50.0, 150.0, 200.0, 30.0],
+                "about_to_churn": [True, False, True, False],
+            }
+        )
+        return CoinFlipResult(
+            player_results=df,
+            total_interactions=100,
+            success_counts={0: 40, 1: 30, 2: 20, 3: 10},
+            total_points=430.0,
+            players_above_threshold=2,
+            threshold=100.0,
+        )
+
+    @pytest.fixture
+    def result_without_churn(self) -> CoinFlipResult:
+        df = pl.DataFrame(
+            {
+                "user_id": [1, 2],
+                "total_points": [80.0, 120.0],
+            }
+        )
+        return CoinFlipResult(
+            player_results=df,
+            total_interactions=50,
+            success_counts={0: 25, 1: 15, 2: 10},
+            total_points=200.0,
+            players_above_threshold=1,
+            threshold=100.0,
+        )
+
+    def test_get_kpi_cards_returns_four_kpis(
+        self, result_with_churn: CoinFlipResult,
+    ) -> None:
+        cards = result_with_churn.get_kpi_cards()
+        assert len(cards) == 4
+        expected_labels = {
+            "Mean Points / Player",
+            "Median Points / Player",
+            "Total Points",
+            "% Above Threshold",
+        }
+        assert set(cards.keys()) == expected_labels
+
+    def test_get_kpi_cards_values_match_get_kpi_metrics(
+        self, result_with_churn: CoinFlipResult,
+    ) -> None:
+        cards = result_with_churn.get_kpi_cards()
+        raw = result_with_churn.get_kpi_metrics()
+        assert cards["Mean Points / Player"][0] == raw["mean_points_per_player"]
+        assert cards["Median Points / Player"][0] == raw["median_points_per_player"]
+        assert cards["Total Points"][0] == raw["total_points"]
+        assert cards["% Above Threshold"][0] == round(raw["pct_above_threshold"] * 100, 2)
+
+    def test_get_kpi_cards_includes_help_text(
+        self, result_with_churn: CoinFlipResult,
+    ) -> None:
+        cards = result_with_churn.get_kpi_cards()
+        for label, (value, help_text) in cards.items():
+            assert isinstance(help_text, str)
+            assert len(help_text) > 0, f"Help text for '{label}' should not be empty"
+
+    def test_get_segments_with_churn_column(
+        self, result_with_churn: CoinFlipResult,
+    ) -> None:
+        segments = result_with_churn.get_segments()
+        assert segments is not None
+        assert "churn" in segments
+        assert "non-churn" in segments
+        for seg_name, metrics in segments.items():
+            assert "Player Count" in metrics
+            assert "Avg Points / Player" in metrics
+            assert "Median Points / Player" in metrics
+            assert "Total Points" in metrics
+
+    def test_get_segments_churn_values(
+        self, result_with_churn: CoinFlipResult,
+    ) -> None:
+        segments = result_with_churn.get_segments()
+        assert segments is not None
+        churn = segments["churn"]
+        assert churn["Player Count"] == 2.0
+        # Churn players: user_id 1 (50.0) and user_id 3 (200.0)
+        assert churn["Total Points"] == 250.0
+        assert churn["Avg Points / Player"] == 125.0
+
+    def test_get_segments_without_churn_returns_none(
+        self, result_without_churn: CoinFlipResult,
+    ) -> None:
+        segments = result_without_churn.get_segments()
+        assert segments is None
+
+    def test_get_dataframe_returns_player_results(
+        self, result_with_churn: CoinFlipResult,
+    ) -> None:
+        df = result_with_churn.get_dataframe()
+        assert isinstance(df, pl.DataFrame)
+        assert df.height == 4
+        assert "user_id" in df.columns
+        assert "total_points" in df.columns
+
+    def test_get_kpi_cards_empty_dataframe(self) -> None:
+        empty_df = pl.DataFrame(
+            {
+                "user_id": pl.Series([], dtype=pl.Int64),
+                "total_points": pl.Series([], dtype=pl.Float64),
+            }
+        )
+        result = CoinFlipResult(
+            player_results=empty_df,
+            total_interactions=0,
+            success_counts={},
+            total_points=0.0,
+            players_above_threshold=0,
+            threshold=100.0,
+        )
+        cards = result.get_kpi_cards()
+        assert cards["Mean Points / Player"][0] == 0.0
+        assert cards["% Above Threshold"][0] == 0.0
+
+    def test_get_segments_with_empty_churn_segment(self) -> None:
+        """All players are non-churn; churn segment should have zero counts."""
+        df = pl.DataFrame(
+            {
+                "user_id": [1, 2],
+                "total_points": [10.0, 20.0],
+                "about_to_churn": [False, False],
+            }
+        )
+        result = CoinFlipResult(
+            player_results=df,
+            total_interactions=10,
+            success_counts={0: 5, 1: 5},
+            total_points=30.0,
+            players_above_threshold=0,
+            threshold=100.0,
+        )
+        segments = result.get_segments()
+        assert segments is not None
+        assert segments["churn"]["Player Count"] == 0.0
+        assert segments["non-churn"]["Player Count"] == 2.0

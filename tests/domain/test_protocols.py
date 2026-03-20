@@ -5,6 +5,8 @@ Verifies that:
 - SimulationResult protocol is @runtime_checkable and enforces to_summary_dict(), to_dataframe(),
   get_distribution(), get_kpi_metrics()
 - Simulator protocol is @runtime_checkable and enforces simulate(), validate_input()
+- ResultsDisplay protocol is @runtime_checkable and enforces get_kpi_cards(), get_distribution(),
+  get_segments(), get_dataframe()
 - SimulatorRegistry can register, retrieve by name, and list all registered simulators
 - SimulatorRegistry raises KeyError for unknown simulator names
 """
@@ -17,7 +19,9 @@ from typing import Any
 import polars as pl
 import pytest
 
+from src.domain.models.coin_flip import CoinFlipResult
 from src.domain.protocols import (
+    ResultsDisplay,
     SimulationResult,
     Simulator,
     SimulatorConfig,
@@ -110,6 +114,35 @@ class NotAResult:
 
 class NotASimulator:
     """Deliberately missing protocol methods."""
+
+    pass
+
+
+@dataclass
+class StubResultsDisplay:
+    """Minimal concrete implementation of ResultsDisplay."""
+
+    def get_kpi_cards(self) -> dict[str, tuple[float | int, str]]:
+        return {
+            "Mean Score": (42.0, "Average score"),
+            "Total Score": (420, "Sum of scores"),
+        }
+
+    def get_distribution(self) -> dict[str, int]:
+        return {"low": 50, "medium": 30, "high": 20}
+
+    def get_segments(self) -> dict[str, dict[str, float]] | None:
+        return {
+            "segment_a": {"Player Count": 10.0, "Avg Score": 5.0},
+            "segment_b": {"Player Count": 20.0, "Avg Score": 3.5},
+        }
+
+    def get_dataframe(self) -> pl.DataFrame:
+        return pl.DataFrame({"user_id": [1, 2], "score": [10.0, 20.0]})
+
+
+class NotAResultsDisplay:
+    """Deliberately missing ResultsDisplay protocol methods."""
 
     pass
 
@@ -238,6 +271,68 @@ class TestSimulatorProtocol:
         errors = sim.validate_input(players)
         assert len(errors) == 1
         assert "user_id" in errors[0]
+
+
+# ---------------------------------------------------------------------------
+# Protocol conformance tests — ResultsDisplay
+# ---------------------------------------------------------------------------
+
+
+class TestResultsDisplayProtocol:
+    """Verify ResultsDisplay protocol is @runtime_checkable and contract works."""
+
+    def test_stub_display_is_instance_of_protocol(self) -> None:
+        display = StubResultsDisplay()
+        assert isinstance(display, ResultsDisplay)
+
+    def test_non_conforming_class_is_not_instance(self) -> None:
+        obj = NotAResultsDisplay()
+        assert not isinstance(obj, ResultsDisplay)
+
+    def test_get_kpi_cards_returns_label_value_help_tuples(self) -> None:
+        display = StubResultsDisplay()
+        cards = display.get_kpi_cards()
+        assert isinstance(cards, dict)
+        for label, (value, help_text) in cards.items():
+            assert isinstance(label, str)
+            assert isinstance(value, (float, int))
+            assert isinstance(help_text, str)
+
+    def test_get_distribution_returns_str_int_dict(self) -> None:
+        display = StubResultsDisplay()
+        dist = display.get_distribution()
+        assert all(isinstance(k, str) for k in dist)
+        assert all(isinstance(v, int) for v in dist.values())
+
+    def test_get_segments_returns_dict_or_none(self) -> None:
+        display = StubResultsDisplay()
+        segments = display.get_segments()
+        assert segments is not None
+        assert isinstance(segments, dict)
+        for seg_name, metrics in segments.items():
+            assert isinstance(seg_name, str)
+            assert isinstance(metrics, dict)
+
+    def test_get_dataframe_returns_polars_dataframe(self) -> None:
+        display = StubResultsDisplay()
+        df = display.get_dataframe()
+        assert isinstance(df, pl.DataFrame)
+
+    def test_coin_flip_result_satisfies_results_display(self) -> None:
+        """CoinFlipResult must satisfy the ResultsDisplay protocol at runtime."""
+        result = CoinFlipResult(
+            player_results=pl.DataFrame({
+                "user_id": [1, 2],
+                "total_points": [10.0, 20.0],
+                "about_to_churn": [True, False],
+            }),
+            total_interactions=100,
+            success_counts={0: 40, 1: 30, 2: 20, 3: 10},
+            total_points=30.0,
+            players_above_threshold=1,
+            threshold=15.0,
+        )
+        assert isinstance(result, ResultsDisplay)
 
 
 # ---------------------------------------------------------------------------
