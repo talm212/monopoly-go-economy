@@ -28,6 +28,7 @@ from src.infrastructure.store.local_store import LocalSimulationStore
 from src.ui.async_helper import run_async
 from src.ui.components.ai_chat_panel import render_ai_chat_panel
 from src.ui.components.insight_cards import render_insight_card
+from src.ui.components.optimizer_comparison import render_optimizer_comparison
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +113,9 @@ def _clear_stale_ai_data() -> None:
     for key in (
         "ai_insights", "ai_chat_history", "optimizer_steps",
         "optimizer_best_config", "cached_csv_data",
+        "optimizer_original_config", "optimizer_original_kpis",
+        "optimizer_original_distribution", "optimizer_optimized_kpis",
+        "optimizer_optimized_distribution",
     ):
         st.session_state.pop(key, None)
 
@@ -391,6 +395,13 @@ def _render_optimizer_tab(
                 summary.update(res.get_kpi_metrics())
                 return summary
 
+            # Snapshot original config, KPIs, and distribution before optimization
+            original_config_dict = config_opt.to_dict()
+            original_result = use_case.execute_from_dataframe(player_data_opt, config_opt)
+            st.session_state["optimizer_original_config"] = original_config_dict
+            st.session_state["optimizer_original_kpis"] = original_result.get_kpi_metrics()
+            st.session_state["optimizer_original_distribution"] = original_result.get_distribution()
+
             with st.spinner("Running optimizer (this may take a minute)..."):
                 try:
                     llm_client_opt = get_llm_client()
@@ -402,7 +413,7 @@ def _render_optimizer_tab(
                     best_config, steps = run_async(
                         optimizer.optimize(
                             simulate_fn=_simulate_fn,
-                            current_config=config_opt.to_dict(),
+                            current_config=original_config_dict,
                             target=target,
                             players=player_data_opt,
                         )
@@ -411,6 +422,15 @@ def _render_optimizer_tab(
                     st.session_state["optimizer_steps"] = steps
                     st.session_state["optimizer_best_config"] = best_config
                     logger.info("Optimizer finished: %d steps", len(steps))
+
+                    # Re-run simulation with best config for comparison KPIs
+                    try:
+                        opt_cfg = CoinFlipConfig.from_dict(best_config)
+                        opt_result = use_case.execute_from_dataframe(player_data_opt, opt_cfg)
+                        st.session_state["optimizer_optimized_kpis"] = opt_result.get_kpi_metrics()
+                        st.session_state["optimizer_optimized_distribution"] = opt_result.get_distribution()
+                    except Exception:
+                        logger.exception("Failed to re-run simulation for comparison")
 
                 except Exception:
                     st.error("Optimizer failed. Check LLM configuration and try again.")
@@ -446,15 +466,34 @@ def _render_optimizer_tab(
             )
 
     if opt_best:
-        st.markdown("#### Best Config Found")
-        st.json(opt_best)
+        # Render comparison view if we have all the data
+        orig_config_ss: dict[str, Any] | None = st.session_state.get("optimizer_original_config")
+        orig_kpis_ss: dict[str, float] | None = st.session_state.get("optimizer_original_kpis")
+        orig_dist_ss: dict[str, int] | None = st.session_state.get("optimizer_original_distribution")
+        opt_kpis_ss: dict[str, float] | None = st.session_state.get("optimizer_optimized_kpis")
+        opt_dist_ss: dict[str, int] | None = st.session_state.get("optimizer_optimized_distribution")
 
-        if st.button(
-            "Apply Best Config & Re-run",
-            type="primary",
-            use_container_width=True,
-            key="opt_apply",
-        ):
+        if orig_config_ss and orig_kpis_ss and opt_kpis_ss:
+            apply_clicked = render_optimizer_comparison(
+                original_config=orig_config_ss,
+                optimized_config=opt_best,
+                original_kpis=orig_kpis_ss,
+                optimized_kpis=opt_kpis_ss,
+                original_distribution=orig_dist_ss or {},
+                optimized_distribution=opt_dist_ss or {},
+            )
+        else:
+            # Fallback: show raw JSON if comparison data is missing
+            st.markdown("#### Best Config Found")
+            st.json(opt_best)
+            apply_clicked = st.button(
+                "Apply Best Config & Re-run",
+                type="primary",
+                use_container_width=True,
+                key="opt_apply_fallback",
+            )
+
+        if apply_clicked:
             try:
                 from src.application.config_conversion import config_obj_to_display
 
@@ -462,30 +501,7 @@ def _render_optimizer_tab(
                 applied_config = CoinFlipConfig.from_dict(opt_best)
                 st.session_state["config"] = applied_config
                 st.session_state["config_dict"] = config_obj_to_display(applied_config)
-
-                # Auto-run if player data exists
-                player_data_apply: pl.DataFrame | None = st.session_state.get("player_data")
-                if player_data_apply is not None:
-                    new_result = use_case.execute_from_dataframe(
-                        player_data_apply, applied_config
-                    )
-                    st.session_state["simulation_result"] = new_result
-                    st.session_state["config_changed_since_run"] = False
-
-                    # Auto-save (include KPI metrics for loaded view)
-                    _opt_summary = new_result.to_summary_dict()
-                    _opt_summary.update(new_result.get_kpi_metrics())
-                    try:
-                        store.save_run(
-                            {
-                                "feature": "coin_flip",
-                                "config": applied_config.to_dict(),
-                                "result_summary": _opt_summary,
-                                "distribution": new_result.get_distribution(),
-                            }
-                        )
-                    except Exception:
-                        logger.exception("Failed to auto-save optimized run")
+                st.session_state["config_changed_since_run"] = True
 
                 # Clear stale AI data
                 _clear_stale_ai_data()
