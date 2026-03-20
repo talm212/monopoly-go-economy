@@ -80,6 +80,12 @@ Economy simulation platform for Monopoly Go game mechanics. Built for the econom
 - **Deploy on AWS Skill**: Automated service selection, cost estimation, security defaults
 - **Design Logs**: Decision documentation before every task
 
+## Deployment Validation
+- Before deploying: run `bash scripts/validate_docker.sh` to validate Docker build
+- Always use `--platform linux/amd64` (production runs on x86 Fargate)
+- Not a pre-commit hook — Docker builds are too slow for every commit
+- Suitable for manual use and CI pipeline integration
+
 ## Key Domain Concepts (Coin Flip)
 - **Interaction**: One coin-flip sequence triggered by landing on a tile. `interactions = rolls_sink / avg_multiplier`
 - **Flip Chain**: Up to `max_successes` sequential flips. Each flip has independent probability. Stops on first tails.

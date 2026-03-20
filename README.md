@@ -160,6 +160,18 @@ poetry run ruff check src/     # Linting
 poetry run ruff format src/    # Format
 ```
 
+## Deployment Validation
+
+Before pushing changes that affect `Dockerfile`, dependencies, or deployment config:
+
+```bash
+bash scripts/validate_docker.sh
+```
+
+This builds the Docker image for `linux/amd64` (production architecture on ECS Fargate)
+with `--no-cache` to catch missing files, dependency mismatches, and stage failures.
+Not run on every commit — only before deployment changes.
+
 ## AI Setup
 
 ```bash

@@ -1,7 +1,7 @@
 # Monopoly Go Economy — Project Details
 
 > **Living document.** Updated every time changes are made to the project.
-> Last updated: 2026-03-19 (Feature #14: Docker containerization)
+> Last updated: 2026-03-21 (Feature #30: Docker build validation script)
 
 ---
 
@@ -51,6 +51,7 @@ src/
 
 tests/                         # Mirrors src/ structure
 infra/                         # AWS CDK stacks (network, data, compute, AI, pipeline)
+scripts/                       # Utility scripts (Docker validation, CI helpers)
 docs/plans/                    # System design, architecture documents
 design-logs/                   # Decision documentation
 coin-flip-assignment/          # Original assignment materials
@@ -207,6 +208,7 @@ Everything else works automatically: I/O, orchestration, dashboard components, A
 | 002 | 2026-03-19 | Architecture & Tooling | Complete |
 | 003 | 2026-03-19 | System Design & Project Planning | Complete |
 | 014 | 2026-03-19 | Docker Containerization | Complete |
+| 031 | 2026-03-21 | Docker Build Validation | Complete |
 
 ## Documents
 
