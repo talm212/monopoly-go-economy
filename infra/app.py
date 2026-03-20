@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import aws_cdk as cdk
 
+from infra.stacks.auth_stack import AuthStack
 from infra.stacks.compute_stack import ComputeStack
 from infra.stacks.data_stack import DataStack
 from infra.stacks.network_stack import NetworkStack
@@ -18,6 +19,8 @@ network_stack = NetworkStack(app, "MonopolyEconomy-Network", env=_ENV)
 
 data_stack = DataStack(app, "MonopolyEconomy-Data", env=_ENV)
 
+auth_stack = AuthStack(app, "MonopolyEconomy-Auth", env=_ENV)
+
 compute_stack = ComputeStack(
     app,
     "MonopolyEconomy-Compute",
@@ -25,6 +28,8 @@ compute_stack = ComputeStack(
     ecr_repo=network_stack.ecr_repo,
     data_bucket=data_stack.data_bucket,
     history_table=data_stack.history_table,
+    user_pool=auth_stack.user_pool,
+    user_pool_domain=auth_stack.user_pool_domain,
     env=_ENV,
 )
 
