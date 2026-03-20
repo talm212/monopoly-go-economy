@@ -162,13 +162,15 @@ def _format_timestamp(iso_str: str) -> str:
 def _format_run_label(run: dict[str, Any]) -> str:
     """Build a short label for a run suitable for selectbox display."""
     created = _format_timestamp(run.get("created_at", ""))
+    name = run.get("name", "")
     feature = run.get("feature", "unknown")
     summary = run.get("result_summary", {})
     total_pts = summary.get("total_points", 0)
     try:
-        return f"{created} | {feature} | {float(total_pts):,.0f} pts"
+        label = name if name else feature
+        return f"{created} | {label} | {float(total_pts):,.0f} pts"
     except (ValueError, TypeError):
-        return f"{created} | {feature}"
+        return f"{created} | {name or feature}"
 
 
 # ---------------------------------------------------------------------------
@@ -222,20 +224,23 @@ def _render_segment_metrics(segment: pl.DataFrame, label: str) -> None:
     median_val = float(points_col.median() or 0.0)
     total_val = float(points_col.sum() or 0.0)
 
+    def _fmt_num(v: float) -> str:
+        return f"{int(v):,}" if v == int(v) else f"{v:,.2f}"
+
     st.metric(
         "Player Count", f"{segment.height:,}",
         help=f"Number of players in the {label} segment.",
     )
     st.metric(
-        "Avg Points / Player", f"{mean_val:,.2f}",
+        "Avg Points / Player", _fmt_num(mean_val),
         help=f"Average points earned per {label} player.",
     )
     st.metric(
-        "Median Points / Player", f"{median_val:,.2f}",
+        "Median Points / Player", _fmt_num(median_val),
         help=f"Median points for {label} players — less sensitive to outliers.",
     )
     st.metric(
-        "Total Points", f"{total_val:,.0f}",
+        "Total Points", _fmt_num(total_val),
         help=f"Sum of all points earned by {label} players.",
     )
 
@@ -359,9 +364,29 @@ with st.sidebar:
                 created = _format_timestamp(run.get("created_at", ""))
                 summary = run.get("result_summary", {})
                 total_pts = summary.get("total_points", 0)
+                run_name = run.get("name", "")
+                run_id = run.get("run_id", "")
 
                 st.caption(created)
-                st.write(f"{run.get('feature', 'unknown')} | {float(total_pts):,.0f} pts")
+                if run_name:
+                    st.write(f"**{run_name}** — {float(total_pts):,.0f} pts")
+                else:
+                    st.write(f"{run.get('feature', 'unknown')} | {float(total_pts):,.0f} pts")
+
+                # Editable name
+                new_name = st.text_input(
+                    "Name",
+                    value=run_name,
+                    key=f"name_run_{idx}",
+                    placeholder="Give this run a name...",
+                    label_visibility="collapsed",
+                )
+                if new_name != run_name and run_id:
+                    try:
+                        store.update_run(run_id, {"name": new_name})
+                        st.rerun()
+                    except Exception:
+                        logger.warning("Failed to rename run %s", run_id)
 
                 load_col, delete_col = st.columns(2)
                 with load_col:

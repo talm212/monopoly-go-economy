@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def _format_value(value: float | int) -> str:
-    """Format a numeric value for display, using commas for large numbers."""
+    """Format a numeric value for display — no trailing .00 for whole numbers."""
     if isinstance(value, float):
         if value == int(value):
             return f"{int(value):,}"

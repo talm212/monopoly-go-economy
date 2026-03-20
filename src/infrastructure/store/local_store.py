@@ -35,6 +35,7 @@ class LocalSimulationStore:
 
         record: dict[str, Any] = {
             "run_id": run_id,
+            "name": run.get("name", ""),
             "feature": run.get("feature", "unknown"),
             "created_at": created_at,
             "config": run.get("config", {}),
@@ -89,6 +90,22 @@ class LocalSimulationStore:
 
         logger.debug("Listed %d runs (feature=%s, limit=%d)", len(runs), feature, limit)
         return runs[:limit]
+
+    def update_run(self, run_id: str, updates: dict[str, Any]) -> None:
+        """Update fields on an existing run. Raises FileNotFoundError if not found."""
+        file_path = self._store_dir / f"{run_id}.json"
+        if not file_path.exists():
+            raise FileNotFoundError(f"No simulation run found with id: {run_id}")
+
+        with open(file_path) as f:
+            record: dict[str, Any] = json.load(f)
+
+        record.update(updates)
+
+        with open(file_path, "w") as f:
+            json.dump(record, f, indent=2)
+
+        logger.info("Updated simulation run %s: %s", run_id, list(updates.keys()))
 
     def delete_run(self, run_id: str) -> None:
         """Delete a run by ID. Raises FileNotFoundError if not found."""

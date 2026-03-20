@@ -46,6 +46,22 @@ _COMPARISON_HELP: dict[str, str] = {
 }
 
 
+def _fmt(value: float) -> str:
+    """Format a number — drop .00 for whole numbers."""
+    if value == int(value):
+        return f"{int(value):,}"
+    return f"{value:,.2f}"
+
+
+def _fmt_delta(value: float) -> str | None:
+    """Format a delta value — drop .00 for whole numbers, None if zero."""
+    if value == 0:
+        return None
+    if value == int(value):
+        return f"{int(value):+,}"
+    return f"{value:+,.2f}"
+
+
 def _render_metric_comparison(
     metrics_a: dict[str, float],
     metrics_b: dict[str, float],
@@ -59,10 +75,8 @@ def _render_metric_comparison(
         st.markdown(f"#### {label_a}")
         for label, value_a in metrics_a.items():
             value_b = metrics_b.get(label, 0.0)
-            delta = value_a - value_b
-            delta_str = f"{delta:+,.2f}" if delta != 0 else None
             st.metric(
-                label=label, value=f"{value_a:,.2f}", delta=delta_str,
+                label=label, value=_fmt(value_a), delta=_fmt_delta(value_a - value_b),
                 help=_COMPARISON_HELP.get(label),
             )
 
@@ -70,10 +84,8 @@ def _render_metric_comparison(
         st.markdown(f"#### {label_b}")
         for label, value_b in metrics_b.items():
             value_a = metrics_a.get(label, 0.0)
-            delta = value_b - value_a
-            delta_str = f"{delta:+,.2f}" if delta != 0 else None
             st.metric(
-                label=label, value=f"{value_b:,.2f}", delta=delta_str,
+                label=label, value=_fmt(value_b), delta=_fmt_delta(value_b - value_a),
                 help=_COMPARISON_HELP.get(label),
             )
 
