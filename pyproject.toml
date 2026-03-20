@@ -41,8 +41,9 @@ markers = [
     "integration: tests with I/O boundaries",
     "slow: tests that take >5 seconds",
     "e2e: end-to-end browser tests (requires Streamlit server)",
+    "benchmark: performance benchmark tests",
 ]
-addopts = "--strict-markers -v -m 'not e2e'"
+addopts = "--strict-markers -v -m 'not e2e and not benchmark'"
 filterwarnings = [
     "ignore::DeprecationWarning:pytest_asyncio",
     "ignore::DeprecationWarning:asyncio",
