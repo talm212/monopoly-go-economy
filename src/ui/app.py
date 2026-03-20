@@ -1,6 +1,6 @@
 """Coin Flip Economy Simulator — single-page Streamlit application.
 
-Consolidates the entire simulation workflow into one scrollable page:
+Thin orchestrator that wires together section modules:
 Setup (upload + config) -> KPI Bar -> Results (charts, churn, data) ->
 AI Analysis (insights, chat, optimizer).  History lives in the sidebar drawer.
 """
@@ -8,74 +8,44 @@ AI Analysis (insights, chat, optimizer).  History lives in the sidebar drawer.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from typing import Any
 
-import altair as alt
 import polars as pl
 import streamlit as st
 
-from src.application.analyze_results import InsightsAnalyst
-from src.application.chat_assistant import ChatAssistant
-from src.application.optimize_config import ConfigOptimizer
+from src.application.config_conversion import (
+    config_df_to_raw_dict,
+    config_obj_to_display,
+    display_dict_to_raw,
+    raw_dict_to_display,
+)
 from src.application.run_simulation import RunSimulationUseCase
 from src.domain.models.coin_flip import CoinFlipConfig, CoinFlipResult
-from src.domain.models.insight import Insight, Severity
-from src.domain.models.optimization import (
-    OptimizationDirection,
-    OptimizationStep,
-    OptimizationTarget,
-)
 from src.domain.simulators.coin_flip import CoinFlipSimulator
 from src.infrastructure.readers.local_reader import LocalDataReader
 from src.infrastructure.readers.normalize import normalize_churn_column
 from src.infrastructure.store.local_store import LocalSimulationStore
-from src.ui.async_helper import run_async
-from src.ui.components.ai_chat_panel import render_ai_chat_panel
-from src.ui.components.comparison_view import render_comparison_view
 from src.ui.components.config_editor import render_config_editor
-from src.ui.components.distribution_chart import render_distribution_chart
 from src.ui.components.kpi_cards import render_kpi_cards
 from src.ui.components.upload_widget import render_upload_widget
+from src.ui.sections.ai_analysis import render_ai_analysis
+from src.ui.sections.results_section import render_results
+from src.ui.sections.sidebar_history import render_sidebar_history
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Constants
+# Backward-compatible aliases (used by tests that import from app.py)
 # ---------------------------------------------------------------------------
 
-_POINTS_HISTOGRAM_BINS = 30
-_CHART_HEIGHT = 400
-_CHART_COLOR_PRIMARY = "#FF6B35"
-_CHART_COLOR_CHURN = "#E63946"
-_CHART_COLOR_NON_CHURN = "#457B9D"
+_config_df_to_raw_dict = config_df_to_raw_dict
+_raw_dict_to_display = raw_dict_to_display
+_display_dict_to_raw = display_dict_to_raw
+_config_obj_to_display = config_obj_to_display
 
-_SEVERITY_COLORS: dict[Severity, str] = {
-    Severity.INFO: "#1E88E5",
-    Severity.WARNING: "#FB8C00",
-    Severity.CRITICAL: "#E53935",
-}
-
-_SEVERITY_LABELS: dict[Severity, str] = {
-    Severity.INFO: "INFO",
-    Severity.WARNING: "WARNING",
-    Severity.CRITICAL: "CRITICAL",
-}
-
-_MAX_DISPLAY_RUNS = 50
-_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-
-_OPTIMIZER_METRICS = (
-    "pct_above_threshold",
-    "mean_points_per_player",
-    "total_points",
-)
-
-_DIRECTION_OPTIONS = {
-    "Target": OptimizationDirection.TARGET,
-    "Maximize": OptimizationDirection.MAXIMIZE,
-    "Minimize": OptimizationDirection.MINIMIZE,
-}
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
 
 _KPI_HELP = {
     "Mean Points / Player": (
@@ -167,183 +137,6 @@ _use_case = _get_use_case()
 
 
 # ---------------------------------------------------------------------------
-# Config helpers
-# ---------------------------------------------------------------------------
-
-
-def _config_df_to_raw_dict(df: pl.DataFrame) -> dict[str, str]:
-    """Convert a config CSV DataFrame (Input, Value columns) to a raw string dict."""
-    raw: dict[str, str] = {}
-    for row in df.iter_rows(named=True):
-        raw[str(row["Input"])] = str(row["Value"])
-    return raw
-
-
-def _raw_dict_to_display(raw: dict[str, str]) -> dict[str, Any]:
-    """Convert raw CSV string dict to display-friendly types for the editor."""
-    display: dict[str, Any] = {}
-    for key, value in raw.items():
-        if value.endswith("%"):
-            display[key] = value
-        else:
-            try:
-                display[key] = int(value)
-            except ValueError:
-                try:
-                    display[key] = float(value)
-                except ValueError:
-                    display[key] = value
-    return display
-
-
-def _display_dict_to_raw(display: dict[str, Any]) -> dict[str, str]:
-    """Convert the editor's display dict back to raw string form."""
-    raw: dict[str, str] = {}
-    for key, value in display.items():
-        if isinstance(value, str):
-            raw[key] = value
-        elif isinstance(value, float) and not isinstance(value, bool):
-            if value == int(value):
-                raw[key] = str(int(value))
-            else:
-                raw[key] = str(value)
-        else:
-            raw[key] = str(value)
-    return raw
-
-
-def _config_obj_to_display(config: CoinFlipConfig) -> dict[str, Any]:
-    """Convert a CoinFlipConfig to the display dict format the editor expects.
-
-    The editor uses CSV-style keys (p_success_1, points_success_1, etc.)
-    while the config object stores flat lists.
-    """
-    display: dict[str, Any] = {}
-    for i, p in enumerate(config.probabilities, 1):
-        display[f"p_success_{i}"] = f"{round(p * 100):.0f}%"
-    for i, v in enumerate(config.point_values, 1):
-        display[f"points_success_{i}"] = int(v) if v == int(v) else v
-    display["max_successes"] = config.max_successes
-    return display
-
-
-# ---------------------------------------------------------------------------
-# History helpers
-# ---------------------------------------------------------------------------
-
-
-def _format_timestamp(iso_str: str) -> str:
-    """Format an ISO timestamp to a human-readable string."""
-    try:
-        dt = datetime.fromisoformat(iso_str)
-        return dt.strftime(_DATE_FORMAT)
-    except (ValueError, TypeError):
-        return iso_str
-
-
-def _format_run_label(run: dict[str, Any]) -> str:
-    """Build a short label for a run suitable for selectbox display."""
-    created = _format_timestamp(run.get("created_at", ""))
-    name = run.get("name", "")
-    feature = run.get("feature", "unknown")
-    summary = run.get("result_summary", {})
-    total_pts = summary.get("total_points", 0)
-    try:
-        label = name if name else feature
-        return f"{created} | {label} | {float(total_pts):,.0f} pts"
-    except (ValueError, TypeError):
-        return f"{created} | {name or feature}"
-
-
-# ---------------------------------------------------------------------------
-# Insight rendering helpers
-# ---------------------------------------------------------------------------
-
-
-def _render_severity_badge(severity: Severity) -> str:
-    """Return an HTML badge span for the given severity level."""
-    color = _SEVERITY_COLORS[severity]
-    label = _SEVERITY_LABELS[severity]
-    return (
-        f'<span style="background-color:{color};color:white;'
-        f"padding:2px 10px;border-radius:12px;font-size:0.85em;"
-        f'font-weight:600;">{label}</span>'
-    )
-
-
-def _render_insight_card(insight: Insight) -> None:
-    """Render a single insight as a styled card."""
-    badge_html = _render_severity_badge(insight.severity)
-
-    st.markdown(badge_html, unsafe_allow_html=True)
-    st.markdown(f"**{insight.finding}**")
-    st.markdown(f"*Recommendation:* {insight.recommendation}")
-
-    if insight.metric_references:
-        with st.expander("Supporting Metrics", expanded=False):
-            rows = [
-                {"Metric": name, "Value": value}
-                for name, value in insight.metric_references.items()
-            ]
-            st.table(rows)
-
-    st.markdown("---")
-
-
-# ---------------------------------------------------------------------------
-# Segment metrics helper
-# ---------------------------------------------------------------------------
-
-
-def _render_segment_metrics(segment: pl.DataFrame, label: str) -> None:
-    """Render KPI metrics for a player segment (churn / non-churn)."""
-    if segment.height == 0:
-        st.info(f"No {label} players in this dataset.")
-        return
-
-    points_col = segment["total_points"]
-    mean_val = float(points_col.mean() or 0.0)
-    median_val = float(points_col.median() or 0.0)
-    total_val = float(points_col.sum() or 0.0)
-
-    def _fmt_num(v: float) -> str:
-        return f"{int(v):,}" if v == int(v) else f"{v:,.2f}"
-
-    st.metric(
-        "Player Count", f"{segment.height:,}",
-        help=(
-            f"Count of players in the **{label}** segment.\n\n"
-            f"Segmented by the about_to_churn flag from the uploaded CSV."
-        ),
-    )
-    st.metric(
-        "Avg Points / Player", _fmt_num(mean_val),
-        help=(
-            f"**Calculation:** sum(total_points) / count(players) for {label} segment\n\n"
-            f"**Churn boost:** players with about_to_churn=true get "
-            f"boosted_p = min(p_success_i * 1.3, 1.0)\n"
-            f"so their average is expected to be higher."
-        ),
-    )
-    st.metric(
-        "Median Points / Player", _fmt_num(median_val),
-        help=(
-            f"Middle value of total_points for **{label}** players when sorted.\n\n"
-            f"Compare mean vs median to detect skew in the distribution."
-        ),
-    )
-    st.metric(
-        "Total Points", _fmt_num(total_val),
-        help=(
-            f"**Calculation:** sum(total_points) for all {label} players\n\n"
-            f"**Parameters:**\n"
-            f"- total_points = sum over interactions of "
-            f"(cumulative points at success depth * avg_multiplier)"
-        ),
-    )
-
-
-# ---------------------------------------------------------------------------
 # Stale data helpers
 # ---------------------------------------------------------------------------
 
@@ -414,7 +207,7 @@ if not st.session_state.get("_app_initialized", False):
                 try:
                     loaded_config = CoinFlipConfig.from_dict(config_data)
                     st.session_state["config"] = loaded_config
-                    st.session_state["config_dict"] = _config_obj_to_display(
+                    st.session_state["config_dict"] = config_obj_to_display(
                         loaded_config
                     )
                 except (KeyError, ValueError):
@@ -445,122 +238,11 @@ st.markdown(
 )
 
 
-
 # ===========================================================================
-# HISTORY (sidebar — open via hamburger menu, always available)
+# HISTORY (sidebar)
 # ===========================================================================
 
-with st.sidebar:
-    st.header("History")
-
-    all_runs = store.list_runs(limit=_MAX_DISPLAY_RUNS)
-
-    if not all_runs:
-        st.info("No past runs yet. Run a simulation to see history here.")
-    else:
-        st.write(f"**{len(all_runs)}** run(s)")
-
-        for idx, run in enumerate(all_runs):
-            with st.container(border=True):
-                created = _format_timestamp(run.get("created_at", ""))
-                summary = run.get("result_summary", {})
-                total_pts = summary.get("total_points", 0)
-                run_name = run.get("name", "")
-                run_id = run.get("run_id", "")
-
-                st.caption(f"{created} — {float(total_pts):,.0f} pts")
-
-                # Editable name — plain text_input, saves on rerun after Enter/blur
-                new_name = st.text_input(
-                    "Run name",
-                    value=run_name,
-                    key=f"name_{run_id}",
-                    placeholder="Name this run...",
-                    label_visibility="collapsed",
-                )
-                if new_name != run_name and run_id:
-                    try:
-                        store.update_run(run_id, {"name": new_name})
-                        st.toast(f"Saved: {new_name}")
-                    except Exception as exc:
-                        st.error(f"Failed to save: {exc}")
-
-                load_col, delete_col = st.columns(2)
-                with load_col:
-                    if st.button("Load", key=f"load_{run_id}", use_container_width=True):
-                        run_config = run.get("config", {})
-                        try:
-                            if run_config:
-                                loaded_cfg = CoinFlipConfig.from_dict(run_config)
-                                st.session_state["config"] = loaded_cfg
-                                st.session_state["config_dict"] = _config_obj_to_display(
-                                    loaded_cfg
-                                )
-                                st.session_state["config_uploaded"] = True
-                                # Purge stale config editor widget keys
-                                for _k in list(st.session_state.keys()):
-                                    if _k.startswith("cf_cfg_"):
-                                        del st.session_state[_k]
-
-                            # Load result summary + distribution for display
-                            run_summary = run.get("result_summary", {})
-                            run_dist = run.get("distribution", {})
-                            if run_summary:
-                                st.session_state["loaded_run_summary"] = run_summary
-                                st.session_state["loaded_run_distribution"] = run_dist
-                                # Clear full result so loaded view takes over
-                                st.session_state.pop("simulation_result", None)
-                                _clear_stale_ai_data()
-
-                            st.toast(f"Loaded run from {created}")
-                            st.rerun()
-                        except Exception as exc:
-                            st.error(f"Failed to load run: {exc}")
-                with delete_col:
-                    if st.button("Delete", key=f"del_{run_id}", use_container_width=True):
-                        try:
-                            store.delete_run(run["run_id"])
-                            st.toast("Run deleted.")
-                            st.rerun()
-                        except FileNotFoundError:
-                            st.warning("Run already deleted.")
-
-        # --- Compare two runs ---
-        st.markdown("---")
-        st.subheader("Compare Runs")
-
-        if len(all_runs) < 2:
-            st.info("Need at least 2 runs to compare.")
-        else:
-            run_labels = {r["run_id"]: _format_run_label(r) for r in all_runs}
-            run_ids = list(run_labels.keys())
-
-            selected_a = st.selectbox(
-                "Run A",
-                options=run_ids,
-                format_func=lambda x: run_labels.get(x, x),
-                index=0,
-                key="sidebar_compare_a",
-            )
-            default_b = 1 if len(run_ids) > 1 else 0
-            selected_b = st.selectbox(
-                "Run B",
-                options=run_ids,
-                format_func=lambda x: run_labels.get(x, x),
-                index=default_b,
-                key="sidebar_compare_b",
-            )
-
-            if selected_a and selected_b and selected_a != selected_b:
-                if st.button("Compare Side-by-Side", type="primary", use_container_width=True):
-                    st.session_state["comparison_mode"] = True
-                    st.session_state["comparison_runs"] = (
-                        store.get_run(selected_a),
-                        store.get_run(selected_b),
-                    )
-                    st.rerun()
-            elif selected_a == selected_b:
-                st.warning("Select two different runs.")
+render_sidebar_history(store)
 
 
 # ===========================================================================
@@ -570,6 +252,9 @@ with st.sidebar:
 if st.session_state.get("comparison_mode", False):
     comparison_runs = st.session_state.get("comparison_runs")
     if comparison_runs:
+        from src.ui.components.comparison_view import render_comparison_view
+        from src.ui.sections.sidebar_history import _format_run_label
+
         run_a_data, run_b_data = comparison_runs
         if st.button("Back to Current Simulation"):
             st.session_state["comparison_mode"] = False
@@ -629,8 +314,8 @@ with _setup_container:
 
         if config_df is not None:
             try:
-                raw_config = _config_df_to_raw_dict(config_df)
-                display_config = _raw_dict_to_display(raw_config)
+                raw_config = config_df_to_raw_dict(config_df)
+                display_config = raw_dict_to_display(raw_config)
                 st.session_state["config_dict"] = display_config
                 st.session_state["config_uploaded"] = True
                 # Purge stale config editor widget keys
@@ -654,7 +339,7 @@ with _setup_container:
                 st.session_state["config_dict"] = edited_config
 
                 try:
-                    raw_for_model = _display_dict_to_raw(edited_config)
+                    raw_for_model = display_dict_to_raw(edited_config)
                     coin_flip_config = CoinFlipConfig.from_csv_dict(raw_for_model)
                     st.session_state["config"] = coin_flip_config
                 except (KeyError, ValueError) as exc:
@@ -819,131 +504,12 @@ if has_any_result:
                 )
 
 
-
 # ===========================================================================
 # 4. RESULTS SECTION
 # ===========================================================================
 
 if has_any_result:
-    st.subheader("Results")
-
-    # Get distribution from either full result or loaded history
-    display_dist: dict[str, int] = {}
-    if sim_result is not None:
-        display_dist = sim_result.get_distribution()
-    elif loaded_distribution:
-        display_dist = {str(k): int(v) for k, v in loaded_distribution.items()}
-
-    if sim_result is not None:
-        # Full result available — show all tabs
-        charts_tab, churn_tab, data_tab = st.tabs(
-            ["Charts", "Churn Analysis", "Data Table"]
-        )
-
-        with charts_tab:
-            st.caption(
-                "How points and flip outcomes are distributed across the player base. "
-                "Each interaction is a coin-flip chain: flip up to max_successes times, "
-                "stop on first tails. Points = cumulative sum of configured point values at each depth."
-            )
-            chart_left, chart_right = st.columns(2)
-            with chart_left:
-                render_distribution_chart(
-                    distribution=display_dist,
-                    title="Success Depth Distribution",
-                    x_label="Success Depth",
-                    y_label="Interaction Count",
-                )
-                st.caption(
-                    "X-axis: success depth = number of consecutive successful flips before first tails. "
-                    "Y-axis: count of interactions that ended at that depth. "
-                    "Depth 0 = tails on first flip (no points). "
-                    "Each flip i has probability p_success_i from config."
-                )
-            with chart_right:
-                player_results = sim_result.player_results
-                if not player_results.is_empty():
-                    points_hist = (
-                        alt.Chart(player_results)
-                        .mark_bar(color=_CHART_COLOR_PRIMARY)
-                        .encode(
-                            x=alt.X(
-                                "total_points:Q",
-                                bin=alt.Bin(maxbins=_POINTS_HISTOGRAM_BINS),
-                                title="Total Points",
-                            ),
-                            y=alt.Y("count()", title="Number of Players"),
-                            tooltip=[
-                                alt.Tooltip(
-                                    "total_points:Q",
-                                    bin=alt.Bin(maxbins=_POINTS_HISTOGRAM_BINS),
-                                    title="Points Range",
-                                ),
-                                alt.Tooltip("count()", title="Players"),
-                            ],
-                        )
-                        .properties(
-                            title="Points Distribution Across Players",
-                            width="container",
-                            height=_CHART_HEIGHT,
-                        )
-                    )
-                    st.altair_chart(points_hist, use_container_width=True)
-                    st.caption(
-                        "X-axis: total_points per player = sum over all interactions of "
-                        "(cumulative points at success depth * avg_multiplier). "
-                        "Y-axis: number of players in that points range (histogram bins)."
-                    )
-
-        with churn_tab:
-            player_results = sim_result.player_results
-            st.caption(
-                "Segments players by about_to_churn flag from CSV. "
-                "Churn players: each flip probability is multiplied by churn_boost_multiplier (default 1.3x), "
-                "capped at 1.0. This means boosted_p = min(p_success_i * 1.3, 1.0). "
-                "Compare metrics to see the effect of the churn boost on earnings."
-            )
-            if "about_to_churn" in player_results.columns:
-                churn_df = player_results.filter(pl.col("about_to_churn"))
-                non_churn_df = player_results.filter(~pl.col("about_to_churn"))
-                col_churn, col_non_churn = st.columns(2)
-                with col_churn:
-                    st.markdown("#### About-to-Churn Players")
-                    _render_segment_metrics(churn_df, "churn")
-                with col_non_churn:
-                    st.markdown("#### Non-Churn Players")
-                    _render_segment_metrics(non_churn_df, "non-churn")
-            else:
-                st.info("No churn data available.")
-
-        with data_tab:
-            result_df = sim_result.to_dataframe()
-            # Cache CSV export in session state to avoid re-serializing on every rerun
-            if "cached_csv_data" not in st.session_state:
-                st.session_state["cached_csv_data"] = result_df.write_csv()
-            csv_data = st.session_state["cached_csv_data"]
-            st.download_button(
-                "Download Results CSV",
-                csv_data,
-                "simulation_results.csv",
-                "text/csv",
-                key="download_results_csv",
-            )
-            st.dataframe(result_df, use_container_width=True, hide_index=True)
-            st.caption(f"Showing {result_df.height:,} player rows.")
-
-    else:
-        # Loaded from history — show distribution chart only (no player-level data)
-        render_distribution_chart(
-            distribution=display_dist,
-            title="Success Depth Distribution",
-            x_label="Success Depth",
-            y_label="Interaction Count",
-        )
-        st.caption(
-            "Showing summary from a past run. "
-            "Upload player data and re-run for full charts, churn analysis, and data table."
-        )
+    render_results(sim_result, loaded_summary, loaded_distribution)
 
 
 # ===========================================================================
@@ -951,336 +517,14 @@ if has_any_result:
 # ===========================================================================
 
 if has_any_result:
-    st.subheader("AI Analysis")
-
-    if _config_changed_since_last_run():
-        st.warning(
-            "Config has changed since the last simulation. "
-            "AI analysis is based on previous results."
-        )
-
-    st.caption(
-        "AI-powered analysis of your simulation results. "
-        "Requires an LLM provider (Bedrock or Anthropic) to be configured."
+    render_ai_analysis(
+        sim_result=sim_result,
+        loaded_summary=loaded_summary,
+        loaded_distribution=loaded_distribution,
+        get_llm_client=_get_llm_client,
+        use_case=_use_case,
+        store=store,
     )
-    insights_tab, chat_tab, optimizer_tab = st.tabs(
-        [
-            "Insights",
-            "Ask a Question",
-            "Optimizer",
-        ]
-    )
-
-    # Build shared context for AI — from full result or loaded summary
-    _config_obj: CoinFlipConfig | None = st.session_state.get("config")
-    _config_dict_for_ai: dict[str, Any] = _config_obj.to_dict() if _config_obj is not None else {}
-
-    if sim_result is not None:
-        _result_summary = sim_result.to_summary_dict()
-        _result_summary.update(sim_result.get_kpi_metrics())
-        _distribution = sim_result.get_distribution()
-        _kpi_metrics = sim_result.get_kpi_metrics()
-
-        # Add churn segment breakdown for AI context
-        _player_results = sim_result.player_results
-        if "about_to_churn" in _player_results.columns:
-            _churn_df = _player_results.filter(pl.col("about_to_churn"))
-            _non_churn_df = _player_results.filter(~pl.col("about_to_churn"))
-            _result_summary["churn_segment"] = {
-                "churn_player_count": _churn_df.height,
-                "churn_mean_points": float(_churn_df["total_points"].mean() or 0),
-                "churn_median_points": float(_churn_df["total_points"].median() or 0),
-                "churn_total_points": float(_churn_df["total_points"].sum() or 0),
-                "non_churn_player_count": _non_churn_df.height,
-                "non_churn_mean_points": float(_non_churn_df["total_points"].mean() or 0),
-                "non_churn_median_points": float(_non_churn_df["total_points"].median() or 0),
-                "non_churn_total_points": float(_non_churn_df["total_points"].sum() or 0),
-            }
-    elif loaded_summary:
-        _result_summary = loaded_summary
-        _distribution = {str(k): int(v) for k, v in (loaded_distribution or {}).items()}
-        _kpi_metrics = {
-            "total_points": loaded_summary.get("total_points", 0),
-            "mean_points_per_player": loaded_summary.get("mean_points_per_player", 0.0),
-            "median_points_per_player": loaded_summary.get("median_points_per_player", 0.0),
-            "pct_above_threshold": loaded_summary.get("pct_above_threshold", 0.0),
-        }
-    else:
-        _result_summary = {}
-        _distribution = {}
-        _kpi_metrics = {}
-
-    # --- Insights tab ---
-    with insights_tab:
-        st.caption(
-            "AI reviews your simulation KPIs and flags findings ranked by severity: "
-            "INFO (observation), WARNING (potential issue), CRITICAL (requires attention)."
-        )
-        existing_insights: list[Insight] | None = st.session_state.get("ai_insights")
-
-        button_label = "Regenerate Insights" if existing_insights else "Generate Insights"
-        generate_clicked = st.button(
-            button_label,
-            type="primary",
-            use_container_width=True,
-            key="ai_generate_insights",
-        )
-
-        if generate_clicked:
-            with st.spinner("Analyzing simulation results with AI..."):
-                try:
-                    llm_client = _get_llm_client()
-                    analyst = InsightsAnalyst(llm_client)
-
-                    insights = run_async(
-                        analyst.generate_insights(
-                            result_summary=_result_summary,
-                            distribution=_distribution,
-                            config=_config_dict_for_ai,
-                            kpi_metrics=_kpi_metrics,
-                            feature_name="coin flip",
-                        )
-                    )
-                    if insights:
-                        st.session_state["ai_insights"] = insights
-                        logger.info("Generated %d AI insights", len(insights))
-                        st.rerun()
-                    else:
-                        st.warning(
-                            "The AI did not return any insights. "
-                            "This may indicate an issue with the LLM response. "
-                            "Please try again."
-                        )
-                except ValueError as exc:
-                    st.error(f"Configuration error: {exc}")
-                    logger.exception("LLM configuration error")
-                except Exception as exc:
-                    st.error(
-                        f"Failed to generate insights: `{type(exc).__name__}: {exc}`\n\n"
-                        f"Check your LLM provider config (LLM_PROVIDER, AWS credentials, or ANTHROPIC_API_KEY)."
-                    )
-                    logger.exception("Unexpected error generating insights")
-
-        # Render cached insights
-        cached_insights: list[Insight] | None = st.session_state.get("ai_insights")
-        if cached_insights:
-            st.caption(f"{len(cached_insights)} insight(s) generated")
-            for insight in cached_insights:
-                _render_insight_card(insight)
-        elif not generate_clicked:
-            st.info("Click **Generate Insights** to analyze your simulation results with AI.")
-
-    # --- Ask a Question tab ---
-    with chat_tab:
-        st.caption(
-            "Chat with AI about your simulation results. Ask about trends, "
-            "anomalies, or what-if scenarios."
-        )
-        try:
-            llm_client_chat = _get_llm_client()
-            assistant = ChatAssistant(llm_client_chat)
-
-            render_ai_chat_panel(
-                assistant=assistant,
-                result_summary=_result_summary,
-                distribution=_distribution,
-                config=_config_dict_for_ai,
-                kpi_metrics=_kpi_metrics,
-            )
-        except ValueError as exc:
-            st.error(f"LLM configuration error: {exc}")
-        except Exception:
-            st.error("Failed to initialize chat assistant. Check your LLM configuration.")
-            logger.exception("Chat assistant initialization failed")
-
-    # --- Optimizer tab ---
-    with optimizer_tab:
-        st.caption(
-            "AI iteratively tunes coin-flip config parameters to reach a target KPI value. "
-            "Each iteration runs a full simulation."
-        )
-        opt_col_left, opt_col_right = st.columns(2)
-
-        with opt_col_left:
-            target_metric = st.selectbox(
-                "Target metric",
-                options=list(_OPTIMIZER_METRICS),
-                index=0,
-                key="opt_target_metric",
-                help=(
-                    "**Metrics:**\n"
-                    "- **pct_above_threshold** = count(players where total_points > threshold) / count(players)\n"
-                    "- **mean_points_per_player** = sum(total_points) / count(players)\n"
-                    "- **total_points** = sum of all players' total_points\n\n"
-                    "The AI adjusts probabilities and point values to move this metric toward your target."
-                ),
-            )
-            target_value = st.number_input(
-                "Target value",
-                value=5.0,
-                step=0.1,
-                format="%.4f",
-                key="opt_target_value",
-                help="The desired value for the selected metric.\n\nThe optimizer will try to make the metric converge to this number.",
-            )
-
-        with opt_col_right:
-            direction_label = st.selectbox(
-                "Direction",
-                options=list(_DIRECTION_OPTIONS.keys()),
-                index=0,
-                key="opt_direction",
-                help=(
-                    "- **Target:** converge to the exact target value\n"
-                    "- **Maximize:** push metric as high as possible\n"
-                    "- **Minimize:** push metric as low as possible"
-                ),
-            )
-            max_iterations = st.number_input(
-                "Max iterations",
-                min_value=1,
-                max_value=20,
-                value=10,
-                step=1,
-                key="opt_max_iter",
-                help="How many optimization rounds the AI will attempt before stopping.\n\nEach iteration runs a full simulation with adjusted config.",
-            )
-
-        optimize_clicked = st.button(
-            "Run Optimizer",
-            type="primary",
-            use_container_width=True,
-            key="opt_run",
-        )
-
-        if optimize_clicked:
-            player_data_opt: pl.DataFrame | None = st.session_state.get("player_data")
-            config_opt: CoinFlipConfig | None = st.session_state.get("config")
-
-            if player_data_opt is None:
-                st.error("Upload player data first to run the optimizer.")
-            elif config_opt is None:
-                st.error("Set a configuration first to run the optimizer.")
-            else:
-                direction = _DIRECTION_OPTIONS[direction_label]
-                target = OptimizationTarget(
-                    metric=target_metric,
-                    target_value=float(target_value),
-                    direction=direction,
-                )
-
-                def _simulate_fn(
-                    cfg_dict: dict[str, Any],
-                    players: pl.DataFrame,
-                ) -> dict[str, Any]:
-                    """Simulate wrapper for the optimizer."""
-                    cfg = CoinFlipConfig.from_dict(cfg_dict)
-                    res = _use_case.execute_from_dataframe(players, cfg)
-                    summary = res.to_summary_dict()
-                    summary.update(res.get_kpi_metrics())
-                    return summary
-
-                with st.spinner("Running optimizer (this may take a minute)..."):
-                    try:
-                        llm_client_opt = _get_llm_client()
-                        optimizer = ConfigOptimizer(
-                            llm_client=llm_client_opt,
-                            max_iterations=int(max_iterations),
-                        )
-
-                        best_config, steps = run_async(
-                            optimizer.optimize(
-                                simulate_fn=_simulate_fn,
-                                current_config=config_opt.to_dict(),
-                                target=target,
-                                players=player_data_opt,
-                            )
-                        )
-
-                        st.session_state["optimizer_steps"] = steps
-                        st.session_state["optimizer_best_config"] = best_config
-                        logger.info("Optimizer finished: %d steps", len(steps))
-
-                    except Exception:
-                        st.error("Optimizer failed. Check LLM configuration and try again.")
-                        logger.exception("Optimizer failed")
-
-        # Display optimizer results
-        opt_steps: list[OptimizationStep] | None = st.session_state.get("optimizer_steps")
-        opt_best: dict[str, Any] | None = st.session_state.get("optimizer_best_config")
-
-        if opt_steps:
-            st.markdown("#### Iteration Log")
-
-            step_rows = [
-                {
-                    "Iteration": s.iteration,
-                    "Metric Value": round(s.result_metric, 6),
-                    "Distance to Target": round(s.distance_to_target, 6),
-                }
-                for s in opt_steps
-            ]
-            step_df = pl.DataFrame(step_rows)
-            st.dataframe(step_df, use_container_width=True, hide_index=True)
-
-            # Convergence status
-            final_step = opt_steps[-1]
-            tv = float(target_value) if float(target_value) != 0 else 1.0
-            if final_step.distance_to_target < 0.05 * abs(tv):
-                st.success(f"Converged at iteration {final_step.iteration}")
-            else:
-                st.warning(
-                    f"Did not converge within {len(opt_steps)} iteration(s). "
-                    f"Best distance: {final_step.distance_to_target:.4f}"
-                )
-
-        if opt_best:
-            st.markdown("#### Best Config Found")
-            st.json(opt_best)
-
-            if st.button(
-                "Apply Best Config & Re-run",
-                type="primary",
-                use_container_width=True,
-                key="opt_apply",
-            ):
-                try:
-                    # Write optimized config to session state
-                    applied_config = CoinFlipConfig.from_dict(opt_best)
-                    st.session_state["config"] = applied_config
-                    st.session_state["config_dict"] = _config_obj_to_display(applied_config)
-
-                    # Auto-run if player data exists
-                    player_data_apply: pl.DataFrame | None = st.session_state.get("player_data")
-                    if player_data_apply is not None:
-                        new_result = _use_case.execute_from_dataframe(
-                            player_data_apply, applied_config
-                        )
-                        st.session_state["simulation_result"] = new_result
-                        st.session_state["config_changed_since_run"] = False
-
-                        # Auto-save (include KPI metrics for loaded view)
-                        _opt_summary = new_result.to_summary_dict()
-                        _opt_summary.update(new_result.get_kpi_metrics())
-                        try:
-                            store.save_run(
-                                {
-                                    "feature": "coin_flip",
-                                    "config": applied_config.to_dict(),
-                                    "result_summary": _opt_summary,
-                                    "distribution": new_result.get_distribution(),
-                                }
-                            )
-                        except Exception:
-                            logger.exception("Failed to auto-save optimized run")
-
-                    # Clear stale AI data
-                    _clear_stale_ai_data()
-                    st.rerun()
-
-                except (KeyError, ValueError) as exc:
-                    st.error(f"Failed to apply config: {exc}")
-                    logger.exception("Failed to apply optimizer config")
 
 
 # ===========================================================================

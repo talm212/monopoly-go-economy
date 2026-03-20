@@ -18,10 +18,10 @@ from typing import Any
 import pytest
 
 from src.domain.models.coin_flip import CoinFlipConfig
-from src.ui.app import (
-    _config_obj_to_display,
-    _display_dict_to_raw,
-    _raw_dict_to_display,
+from src.application.config_conversion import (
+    config_obj_to_display as _config_obj_to_display,
+    display_dict_to_raw as _display_dict_to_raw,
+    raw_dict_to_display as _raw_dict_to_display,
 )
 
 # ---------------------------------------------------------------------------
