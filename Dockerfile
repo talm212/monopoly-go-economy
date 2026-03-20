@@ -19,7 +19,8 @@ WORKDIR /app
 
 # Copy virtual env from builder
 COPY --from=builder /app/.venv /app/.venv
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH="/app"
 
 # Copy source code
 COPY src/ ./src/

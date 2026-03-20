@@ -229,19 +229,33 @@ def _render_segment_metrics(segment: pl.DataFrame, label: str) -> None:
 
     st.metric(
         "Player Count", f"{segment.height:,}",
-        help=f"Number of players in the {label} segment.",
+        help=(
+            f"Count of players in the {label} segment. "
+            f"Segmented by the about_to_churn flag from the uploaded CSV."
+        ),
     )
     st.metric(
         "Avg Points / Player", _fmt_num(mean_val),
-        help=f"Average points earned per {label} player.",
+        help=(
+            f"Calculation: sum(total_points) / count(players) for {label} segment only. "
+            f"Churn players get a 1.3x boost on flip probabilities (capped at 1.0), "
+            f"so their average is expected to be higher."
+        ),
     )
     st.metric(
         "Median Points / Player", _fmt_num(median_val),
-        help=f"Median points for {label} players — less sensitive to outliers.",
+        help=(
+            f"Middle value of total_points for {label} players when sorted. "
+            f"Compare mean vs median to detect skew in the distribution."
+        ),
     )
     st.metric(
         "Total Points", _fmt_num(total_val),
-        help=f"Sum of all points earned by {label} players.",
+        help=(
+            f"Calculation: sum(total_points) for all {label} players. "
+            f"Each player's total_points = sum over interactions of "
+            f"(cumulative points at success depth * avg_multiplier)."
+        ),
     )
 
 
@@ -582,7 +596,11 @@ with _setup_container:
             step=1,
             placeholder="Random",
             key="cf_seed",
-            help="Fix the random seed for reproducible results. Leave blank for a random seed.",
+            help=(
+                "Seeds the NumPy random number generator (numpy.random.default_rng). "
+                "All coin flip outcomes are generated at once as a random matrix. "
+                "Same seed + same data + same config = identical results every time."
+            ),
         )
         seed: int | None = int(seed_input) if seed_input is not None else None
 
@@ -660,13 +678,44 @@ if has_any_result:
         st.info("Showing results from a past run. Upload player data and re-run for full analysis.")
 
     _KPI_HELP = {
-        "Mean Points / Player": "Average total points earned per player across all coin-flip interactions.",
-        "Median Points / Player": "Middle value of player points — less affected by outliers than the mean.",
-        "Total Points": "Sum of all points earned by every player in the simulation.",
-        "% Above Threshold": "Percentage of players whose total points exceed the configured reward threshold.",
-        "Total Interactions": "Total number of coin-flip sequences triggered across all players.",
-        "Players Above Threshold": "Count of players whose total points exceed the reward threshold.",
-        "Threshold": "The reward threshold used to classify high-earning players.",
+        "Mean Points / Player": (
+            "Calculation: sum(total_points) / count(players). "
+            "Each player's total_points = sum of points from all their coin-flip interactions. "
+            "Per interaction: flip sequentially up to max_successes times. "
+            "Points = cumulative sum of points_success_1..points_success_depth (stop at first tails). "
+            "Final interaction points are multiplied by the player's avg_multiplier."
+        ),
+        "Median Points / Player": (
+            "Calculation: middle value when all players' total_points are sorted. "
+            "Less sensitive to extreme outliers than the mean. "
+            "If mean >> median, a few players are earning disproportionately more."
+        ),
+        "Total Points": (
+            "Calculation: sum of total_points across all players. "
+            "Each player's total_points = sum over interactions of "
+            "(cumulative points at success depth * avg_multiplier). "
+            "Reflects the total economy output of the simulation."
+        ),
+        "% Above Threshold": (
+            "Calculation: count(players where total_points > reward_threshold) / count(players) * 100. "
+            "reward_threshold is set in the config (default 100). "
+            "Shows what fraction of the player base exceeds the reward cutoff."
+        ),
+        "Total Interactions": (
+            "Calculation: sum of (rolls_sink // avg_multiplier) for each player. "
+            "rolls_sink = total rolls available to the player. "
+            "avg_multiplier = average bet multiplier. "
+            "Each interaction triggers one coin-flip chain."
+        ),
+        "Players Above Threshold": (
+            "Calculation: count of players where total_points > reward_threshold. "
+            "reward_threshold is set in the config (default 100)."
+        ),
+        "Threshold": (
+            "The reward_threshold config parameter. "
+            "Players with total_points above this value are counted in 'Players Above Threshold' "
+            "and '% Above Threshold'."
+        ),
     }
 
     with st.container(border=True):
@@ -723,7 +772,9 @@ if has_any_result:
 
         with charts_tab:
             st.caption(
-                "How points and flip outcomes are distributed across the player base."
+                "How points and flip outcomes are distributed across the player base. "
+                "Each interaction is a coin-flip chain: flip up to max_successes times, "
+                "stop on first tails. Points = cumulative sum of configured point values at each depth."
             )
             chart_left, chart_right = st.columns(2)
             with chart_left:
@@ -734,8 +785,10 @@ if has_any_result:
                     y_label="Interaction Count",
                 )
                 st.caption(
-                    "X-axis: number of consecutive successful flips in a chain. "
-                    "Y-axis: how many interactions reached that depth."
+                    "X-axis: success depth = number of consecutive successful flips before first tails. "
+                    "Y-axis: count of interactions that ended at that depth. "
+                    "Depth 0 = tails on first flip (no points). "
+                    "Each flip i has probability p_success_i from config."
                 )
             with chart_right:
                 player_results = sim_result.player_results
@@ -767,15 +820,18 @@ if has_any_result:
                     )
                     st.altair_chart(points_hist, use_container_width=True)
                     st.caption(
-                        "X-axis: total points earned by a player. "
-                        "Y-axis: number of players in that points range."
+                        "X-axis: total_points per player = sum over all interactions of "
+                        "(cumulative points at success depth * avg_multiplier). "
+                        "Y-axis: number of players in that points range (histogram bins)."
                     )
 
         with churn_tab:
             player_results = sim_result.player_results
             st.caption(
-                "Compares players flagged as about-to-churn (who receive a 1.3x probability boost) "
-                "against regular players."
+                "Segments players by about_to_churn flag from CSV. "
+                "Churn players: each flip probability is multiplied by churn_boost_multiplier (default 1.3x), "
+                "capped at 1.0. This means boosted_p = min(p_success_i * 1.3, 1.0). "
+                "Compare metrics to see the effect of the churn boost on earnings."
             )
             if "about_to_churn" in player_results.columns:
                 churn_df = player_results.filter(pl.col("about_to_churn"))
@@ -962,9 +1018,10 @@ if has_any_result:
                 index=0,
                 key="opt_target_metric",
                 help=(
-                    "pct_above_threshold: fraction of players above reward threshold. "
-                    "mean_points_per_player: average points earned. "
-                    "total_points: sum across all players."
+                    "pct_above_threshold = count(players where total_points > threshold) / count(players). "
+                    "mean_points_per_player = sum(total_points) / count(players). "
+                    "total_points = sum of all players' total_points. "
+                    "The AI adjusts probabilities and point values to move this metric toward your target."
                 ),
             )
             target_value = st.number_input(

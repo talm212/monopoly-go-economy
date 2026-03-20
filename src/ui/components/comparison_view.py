@@ -40,9 +40,20 @@ def _extract_kpi_metrics(run: dict[str, Any]) -> dict[str, float]:
 
 
 _COMPARISON_HELP: dict[str, str] = {
-    "Total Points": "Sum of all points earned in this run.",
-    "Total Interactions": "Number of coin-flip sequences triggered.",
-    "Players Above Threshold": "Players whose total points exceed the reward threshold.",
+    "Total Points": (
+        "Calculation: sum of total_points across all players. "
+        "Each player's total_points = sum over interactions of "
+        "(cumulative points at success depth * avg_multiplier). "
+        "Delta shows the difference between the two runs."
+    ),
+    "Total Interactions": (
+        "Calculation: sum of (rolls_sink // avg_multiplier) for each player. "
+        "Each interaction triggers one coin-flip chain of up to max_successes flips."
+    ),
+    "Players Above Threshold": (
+        "Calculation: count of players where total_points > reward_threshold. "
+        "Delta shows how many more/fewer players crossed the threshold between runs."
+    ),
 }
 
 
