@@ -67,16 +67,24 @@ def _clear_stale_ai_data() -> None:
 # ---------------------------------------------------------------------------
 
 
-def render_sidebar_history(store: LocalSimulationStore) -> None:
+def render_sidebar_history(
+    store: LocalSimulationStore,
+    feature: str | None = None,
+) -> None:
     """Render the full sidebar history section.
 
     Includes: run listing, rename text_input, load/delete buttons,
     and comparison selector.
+
+    Args:
+        store: The simulation store instance.
+        feature: Optional feature name to filter runs by. When None,
+            all runs are shown regardless of feature.
     """
     with st.sidebar:
         st.header("History")
 
-        all_runs = store.list_runs(limit=_MAX_DISPLAY_RUNS)
+        all_runs = store.list_runs(feature=feature, limit=_MAX_DISPLAY_RUNS)
 
         if not all_runs:
             st.info("No past runs yet. Run a simulation to see history here.")

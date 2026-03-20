@@ -13,7 +13,43 @@ from typing import Any
 
 import polars as pl
 
+from src.domain.protocols import ConfigField, ConfigFieldType, ConfigSchema, FeatureAnalysisContext
+
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# KPI help text constants (used by ResultsDisplay.get_kpi_cards)
+# ---------------------------------------------------------------------------
+
+_KPI_HELP: dict[str, str] = {
+    "Mean Points / Player": (
+        "**Calculation:** sum(total_points) / count(players)\n\n"
+        "**Parameters:**\n"
+        "- total_points per player = sum of points from all their coin-flip interactions\n"
+        "- Per interaction: flip up to max_successes times, stop at first tails\n"
+        "- Points = cumulative sum of points_success_1..points_success_depth\n"
+        "- Final points multiplied by the player's avg_multiplier"
+    ),
+    "Median Points / Player": (
+        "**Calculation:** middle value when all players' total_points are sorted\n\n"
+        "Less sensitive to outliers than the mean.\n"
+        "If mean >> median, a few players earn disproportionately more."
+    ),
+    "Total Points": (
+        "**Calculation:** sum(total_points) across all players\n\n"
+        "**Parameters:**\n"
+        "- total_points per player = sum over interactions of "
+        "(cumulative points at success depth * avg_multiplier)\n"
+        "- Reflects the total economy output of the simulation"
+    ),
+    "% Above Threshold": (
+        "**Calculation:** count(players where total_points > threshold) "
+        "/ count(players) * 100\n\n"
+        "**Parameters:**\n"
+        "- reward_threshold: set in config (default 100)\n"
+        "- Shows what fraction of players exceed the reward cutoff"
+    ),
+}
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -127,6 +163,52 @@ class CoinFlipConfig:
         """Return probabilities with churn boost applied, capped at 1.0."""
         return [min(p * self.churn_boost_multiplier, 1.0) for p in self.probabilities]
 
+    @classmethod
+    def schema(cls, max_successes: int = 5) -> ConfigSchema:
+        """Return a ConfigSchema describing the coin-flip configuration fields.
+
+        Args:
+            max_successes: Number of flip depths to include in the schema.
+                Defaults to 5 (the standard coin-flip depth).
+        """
+        fields: list[ConfigField] = []
+        for i in range(1, max_successes + 1):
+            fields.append(
+                ConfigField(
+                    name=f"p_success_{i}",
+                    display_name=f"P(Success {i})",
+                    field_type=ConfigFieldType.PERCENTAGE,
+                    default=0.5,
+                    min_value=0.0,
+                    max_value=1.0,
+                    help_text=f"Probability of success at flip depth {i}",
+                    group="probabilities",
+                )
+            )
+            fields.append(
+                ConfigField(
+                    name=f"points_success_{i}",
+                    display_name=f"Points (Depth {i})",
+                    field_type=ConfigFieldType.INTEGER,
+                    default=1,
+                    min_value=0,
+                    help_text=f"Points awarded for success at depth {i}",
+                    group="points",
+                )
+            )
+        fields.append(
+            ConfigField(
+                name="max_successes",
+                display_name="Max Successes",
+                field_type=ConfigFieldType.INTEGER,
+                default=5,
+                min_value=1,
+                max_value=10,
+                help_text="Maximum number of sequential successful flips per interaction",
+            )
+        )
+        return ConfigSchema(fields=fields)
+
 
 # ---------------------------------------------------------------------------
 # Simulation result
@@ -186,3 +268,107 @@ class CoinFlipResult:
                 else 0.0
             ),
         }
+
+    # ------------------------------------------------------------------
+    # ResultsDisplay protocol methods
+    # ------------------------------------------------------------------
+
+    def get_kpi_cards(self) -> dict[str, tuple[float | int, str]]:
+        """Return KPI card data as ``{label: (value, help_text)}``.
+
+        Produces the same four KPIs that were previously assembled in
+        ``app.py``, with the help texts co-located with the data.
+        """
+        raw = self.get_kpi_metrics()
+        return {
+            "Mean Points / Player": (
+                raw["mean_points_per_player"],
+                _KPI_HELP["Mean Points / Player"],
+            ),
+            "Median Points / Player": (
+                raw["median_points_per_player"],
+                _KPI_HELP["Median Points / Player"],
+            ),
+            "Total Points": (
+                raw["total_points"],
+                _KPI_HELP["Total Points"],
+            ),
+            "% Above Threshold": (
+                round(raw["pct_above_threshold"] * 100, 2),
+                _KPI_HELP["% Above Threshold"],
+            ),
+        }
+
+    def get_segments(self) -> dict[str, dict[str, float]] | None:
+        """Return churn vs non-churn segment breakdowns, or ``None``."""
+        if "about_to_churn" not in self.player_results.columns:
+            return None
+
+        segments: dict[str, dict[str, float]] = {}
+        churn_df = self.player_results.filter(pl.col("about_to_churn"))
+        non_churn_df = self.player_results.filter(~pl.col("about_to_churn"))
+
+        for label, seg_df in (("churn", churn_df), ("non-churn", non_churn_df)):
+            if seg_df.height == 0:
+                segments[label] = {
+                    "Player Count": 0.0,
+                    "Avg Points / Player": 0.0,
+                    "Median Points / Player": 0.0,
+                    "Total Points": 0.0,
+                }
+            else:
+                pts = seg_df["total_points"]
+                segments[label] = {
+                    "Player Count": float(seg_df.height),
+                    "Avg Points / Player": float(pts.mean() or 0.0),
+                    "Median Points / Player": float(pts.median() or 0.0),
+                    "Total Points": float(pts.sum() or 0.0),
+                }
+        return segments
+
+    def get_dataframe(self) -> pl.DataFrame:
+        """Return the full result DataFrame for download / display."""
+        return self.player_results
+
+    def to_analysis_context(self, config: CoinFlipConfig) -> FeatureAnalysisContext:
+        """Build a FeatureAnalysisContext with coin-flip-specific data.
+
+        Encapsulates the context-building logic (summary, KPIs, churn segments)
+        that was previously scattered across the UI layer.
+
+        Args:
+            config: The CoinFlipConfig used for this simulation run.
+
+        Returns:
+            A fully populated FeatureAnalysisContext including churn segment data
+            when the ``about_to_churn`` column is present.
+        """
+        result_summary = self.to_summary_dict()
+        kpi_metrics = self.get_kpi_metrics()
+        result_summary.update(kpi_metrics)
+
+        # Build churn segment breakdown if column exists
+        segment_data: dict[str, Any] | None = None
+        if "about_to_churn" in self.player_results.columns:
+            churn_df = self.player_results.filter(pl.col("about_to_churn"))
+            non_churn_df = self.player_results.filter(~pl.col("about_to_churn"))
+            segment_data = {
+                "churn_player_count": churn_df.height,
+                "churn_mean_points": float(churn_df["total_points"].mean() or 0),
+                "churn_median_points": float(churn_df["total_points"].median() or 0),
+                "churn_total_points": float(churn_df["total_points"].sum() or 0),
+                "non_churn_player_count": non_churn_df.height,
+                "non_churn_mean_points": float(non_churn_df["total_points"].mean() or 0),
+                "non_churn_median_points": float(non_churn_df["total_points"].median() or 0),
+                "non_churn_total_points": float(non_churn_df["total_points"].sum() or 0),
+            }
+            result_summary["churn_segment"] = segment_data
+
+        return FeatureAnalysisContext(
+            feature_name="coin_flip",
+            result_summary=result_summary,
+            distribution=self.get_distribution(),
+            config=config.to_dict(),
+            kpi_metrics=kpi_metrics,
+            segment_data=segment_data,
+        )

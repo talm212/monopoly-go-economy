@@ -1,8 +1,12 @@
-"""Coin Flip Economy Simulator — single-page Streamlit application.
+"""Economy Simulator — single-page Streamlit application with feature routing.
 
 Thin orchestrator that wires together section modules:
 Setup (upload + config) -> KPI Bar -> Results (charts, churn, data) ->
 AI Analysis (insights, chat, optimizer).  History lives in the sidebar drawer.
+
+The active feature is selected via ``?feature=`` query parameter (defaults to
+coin_flip).  Each registered feature renders its own UI; unimplemented features
+show a "Coming soon" placeholder.
 """
 
 from __future__ import annotations
@@ -21,6 +25,7 @@ from src.application.config_conversion import (
 )
 from src.application.run_simulation import RunSimulationUseCase
 from src.domain.models.coin_flip import CoinFlipConfig, CoinFlipResult
+from src.domain.models.coin_flip import _KPI_HELP as _COIN_FLIP_KPI_HELP
 from src.domain.simulators.coin_flip import CoinFlipSimulator
 from src.infrastructure.readers.local_reader import LocalDataReader
 from src.infrastructure.readers.normalize import normalize_churn_column
@@ -28,6 +33,14 @@ from src.infrastructure.store.local_store import LocalSimulationStore
 from src.ui.components.config_editor import render_config_editor
 from src.ui.components.kpi_cards import render_kpi_cards
 from src.ui.components.upload_widget import render_upload_widget
+from src.ui.feature_router import (
+    DEFAULT_FEATURE,
+    FEATURE_REGISTRY,
+    FeatureUIConfig,
+    get_feature_config,
+    is_valid_feature,
+    list_feature_names,
+)
 from src.ui.sections.ai_analysis import render_ai_analysis
 from src.ui.sections.results_section import render_results
 from src.ui.sections.sidebar_history import render_sidebar_history
@@ -47,34 +60,10 @@ _config_obj_to_display = config_obj_to_display
 # Constants
 # ---------------------------------------------------------------------------
 
-_KPI_HELP = {
-    "Mean Points / Player": (
-        "**Calculation:** sum(total_points) / count(players)\n\n"
-        "**Parameters:**\n"
-        "- total_points per player = sum of points from all their coin-flip interactions\n"
-        "- Per interaction: flip up to max_successes times, stop at first tails\n"
-        "- Points = cumulative sum of points_success_1..points_success_depth\n"
-        "- Final points multiplied by the player's avg_multiplier"
-    ),
-    "Median Points / Player": (
-        "**Calculation:** middle value when all players' total_points are sorted\n\n"
-        "Less sensitive to outliers than the mean.\n"
-        "If mean >> median, a few players earn disproportionately more."
-    ),
-    "Total Points": (
-        "**Calculation:** sum(total_points) across all players\n\n"
-        "**Parameters:**\n"
-        "- total_points per player = sum over interactions of "
-        "(cumulative points at success depth * avg_multiplier)\n"
-        "- Reflects the total economy output of the simulation"
-    ),
-    "% Above Threshold": (
-        "**Calculation:** count(players where total_points > threshold) "
-        "/ count(players) * 100\n\n"
-        "**Parameters:**\n"
-        "- reward_threshold: set in config (default 100)\n"
-        "- Shows what fraction of players exceed the reward cutoff"
-    ),
+# KPI help texts: primary source is now in the domain model; extra keys for
+# the loaded-summary fallback path are added here.
+_KPI_HELP: dict[str, str] = {
+    **_COIN_FLIP_KPI_HELP,
     "Total Interactions": (
         "**Calculation:** sum(rolls_sink // avg_multiplier) for each player\n\n"
         "**Parameters:**\n"
@@ -137,6 +126,25 @@ _use_case = _get_use_case()
 
 
 # ---------------------------------------------------------------------------
+# Feature routing helpers
+# ---------------------------------------------------------------------------
+
+
+def _resolve_current_feature() -> str:
+    """Read the current feature from query params, falling back to default.
+
+    If the query param value is not a registered feature, resets to the default.
+    """
+    params = st.query_params
+    raw_feature = params.get("feature", DEFAULT_FEATURE)
+    if is_valid_feature(raw_feature):
+        return raw_feature
+    # Invalid feature in URL — reset to default
+    params["feature"] = DEFAULT_FEATURE
+    return DEFAULT_FEATURE
+
+
+# ---------------------------------------------------------------------------
 # Stale data helpers
 # ---------------------------------------------------------------------------
 
@@ -183,11 +191,24 @@ def _build_setup_summary() -> str:
 # ===========================================================================
 
 st.set_page_config(
-    page_title="Coin Flip Economy Simulator",
+    page_title="Economy Simulator",
     page_icon="\U0001f3b2",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
+
+
+# ===========================================================================
+# Feature routing
+# ===========================================================================
+
+current_feature = _resolve_current_feature()
+current_feature_config: FeatureUIConfig | None = get_feature_config(current_feature)
+
+# Ensure query param is always in sync
+if st.query_params.get("feature") != current_feature:
+    st.query_params["feature"] = current_feature
+
 
 # ===========================================================================
 # Persistence: load most recent run on startup
@@ -199,7 +220,7 @@ store = LocalSimulationStore()
 if not st.session_state.get("_app_initialized", False):
     st.session_state["_app_initialized"] = True
     try:
-        recent_runs = store.list_runs(limit=1)
+        recent_runs = store.list_runs(feature=current_feature, limit=1)
         if recent_runs:
             last_run = recent_runs[0]
             config_data = last_run.get("config", {})
@@ -217,10 +238,31 @@ if not st.session_state.get("_app_initialized", False):
 
 
 # ===========================================================================
-# 1. HEADER
+# 1. HEADER with feature selector
 # ===========================================================================
 
-st.title("Coin Flip Economy Simulator")
+_feature_names = list_feature_names()
+
+if current_feature_config is not None:
+    _page_title = f"{current_feature_config.icon} {current_feature_config.display_name} Economy Simulator"
+else:
+    _page_title = "Economy Simulator"
+
+st.title(_page_title)
+
+# Feature selector — only shown when multiple features exist
+if len(_feature_names) > 1:
+    _display_index = _feature_names.index(current_feature) if current_feature in _feature_names else 0
+    selected_feature = st.selectbox(
+        "Feature",
+        options=_feature_names,
+        index=_display_index,
+        format_func=lambda f: f"{FEATURE_REGISTRY[f].icon} {FEATURE_REGISTRY[f].display_name}",
+        key="feature_selector",
+    )
+    if selected_feature != current_feature:
+        st.query_params["feature"] = selected_feature
+        st.rerun()
 
 # Injected CSS: sticky KPI bar
 st.markdown(
@@ -239,10 +281,26 @@ st.markdown(
 
 
 # ===========================================================================
-# HISTORY (sidebar)
+# HISTORY (sidebar) — filtered by current feature
 # ===========================================================================
 
-render_sidebar_history(store)
+render_sidebar_history(store, feature=current_feature)
+
+
+# ===========================================================================
+# Feature guard — only coin_flip has a full UI for now
+# ===========================================================================
+
+if current_feature != "coin_flip":
+    # Placeholder for future features
+    st.markdown("---")
+    _cfg = get_feature_config(current_feature)
+    _display = _cfg.display_name if _cfg else current_feature
+    st.info(
+        f"**{_display}** simulator is coming soon. "
+        "Stay tuned for updates!"
+    )
+    st.stop()
 
 
 # ===========================================================================
@@ -271,7 +329,7 @@ if st.session_state.get("comparison_mode", False):
 
 
 # ===========================================================================
-# 2. SETUP SECTION
+# 2. SETUP SECTION (coin_flip)
 # ===========================================================================
 
 has_result = "simulation_result" in st.session_state
@@ -461,16 +519,13 @@ if has_any_result:
     with st.container(border=True):
         st.markdown('<div data-testid="sticky-kpi-bar"></div>', unsafe_allow_html=True)
         if sim_result is not None:
-            raw_kpis = sim_result.get_kpi_metrics()
+            # Use the ResultsDisplay protocol: get_kpi_cards() returns
+            # {label: (value, help_text)} — unpack for render_kpi_cards().
+            kpi_cards = sim_result.get_kpi_cards()
             render_kpi_cards(
-                {
-                    "Mean Points / Player": raw_kpis["mean_points_per_player"],
-                    "Median Points / Player": raw_kpis["median_points_per_player"],
-                    "Total Points": raw_kpis["total_points"],
-                    "% Above Threshold": round(raw_kpis["pct_above_threshold"] * 100, 2),
-                },
+                {label: value for label, (value, _) in kpi_cards.items()},
                 columns=4,
-                help_texts=_KPI_HELP,
+                help_texts={label: help_text for label, (_, help_text) in kpi_cards.items()},
             )
         elif loaded_summary:
             # Show same 4 KPIs as fresh run if available, else fall back

@@ -23,6 +23,7 @@ from src.domain.models.optimization import (
     OptimizationStep,
     OptimizationTarget,
 )
+from src.domain.protocols import FeatureAnalysisContext
 from src.infrastructure.store.local_store import LocalSimulationStore
 from src.ui.async_helper import run_async
 from src.ui.components.ai_chat_panel import render_ai_chat_panel
@@ -56,51 +57,49 @@ def _build_ai_context(
     sim_result: CoinFlipResult | None,
     loaded_summary: dict[str, Any] | None,
     loaded_distribution: dict[str, Any] | None,
-) -> tuple[dict[str, Any], dict[str, Any], dict[str, int | float], dict[str, Any]]:
+) -> FeatureAnalysisContext:
     """Build shared AI context from result or loaded summary.
 
+    When a fresh simulation result is available, delegates to
+    ``CoinFlipResult.to_analysis_context`` which encapsulates
+    all coin-flip-specific context building (KPIs, churn segments).
+
+    Falls back to constructing a context from loaded history dicts.
+
     Returns:
-        (config_dict, result_summary, distribution, kpi_metrics)
+        A FeatureAnalysisContext ready for InsightsAnalyst / ChatAssistant / Optimizer.
     """
     config_obj: CoinFlipConfig | None = st.session_state.get("config")
     config_dict_for_ai: dict[str, Any] = config_obj.to_dict() if config_obj is not None else {}
 
-    if sim_result is not None:
-        result_summary = sim_result.to_summary_dict()
-        result_summary.update(sim_result.get_kpi_metrics())
-        distribution: dict[str, Any] = sim_result.get_distribution()
-        kpi_metrics = sim_result.get_kpi_metrics()
+    if sim_result is not None and config_obj is not None:
+        return sim_result.to_analysis_context(config_obj)
 
-        # Add churn segment breakdown for AI context
-        player_results = sim_result.player_results
-        if "about_to_churn" in player_results.columns:
-            churn_df = player_results.filter(pl.col("about_to_churn"))
-            non_churn_df = player_results.filter(~pl.col("about_to_churn"))
-            result_summary["churn_segment"] = {
-                "churn_player_count": churn_df.height,
-                "churn_mean_points": float(churn_df["total_points"].mean() or 0),
-                "churn_median_points": float(churn_df["total_points"].median() or 0),
-                "churn_total_points": float(churn_df["total_points"].sum() or 0),
-                "non_churn_player_count": non_churn_df.height,
-                "non_churn_mean_points": float(non_churn_df["total_points"].mean() or 0),
-                "non_churn_median_points": float(non_churn_df["total_points"].median() or 0),
-                "non_churn_total_points": float(non_churn_df["total_points"].sum() or 0),
-            }
-    elif loaded_summary:
-        result_summary = loaded_summary
-        distribution = {str(k): int(v) for k, v in (loaded_distribution or {}).items()}
-        kpi_metrics = {
-            "total_points": loaded_summary.get("total_points", 0),
-            "mean_points_per_player": loaded_summary.get("mean_points_per_player", 0.0),
-            "median_points_per_player": loaded_summary.get("median_points_per_player", 0.0),
-            "pct_above_threshold": loaded_summary.get("pct_above_threshold", 0.0),
+    if loaded_summary:
+        distribution: dict[str, int] = {
+            str(k): int(v) for k, v in (loaded_distribution or {}).items()
         }
-    else:
-        result_summary = {}
-        distribution = {}
-        kpi_metrics = {}
+        kpi_metrics: dict[str, float] = {
+            "total_points": float(loaded_summary.get("total_points", 0)),
+            "mean_points_per_player": float(loaded_summary.get("mean_points_per_player", 0.0)),
+            "median_points_per_player": float(loaded_summary.get("median_points_per_player", 0.0)),
+            "pct_above_threshold": float(loaded_summary.get("pct_above_threshold", 0.0)),
+        }
+        return FeatureAnalysisContext(
+            feature_name="coin_flip",
+            result_summary=loaded_summary,
+            distribution=distribution,
+            config=config_dict_for_ai,
+            kpi_metrics=kpi_metrics,
+        )
 
-    return config_dict_for_ai, result_summary, distribution, kpi_metrics
+    return FeatureAnalysisContext(
+        feature_name="coin_flip",
+        result_summary={},
+        distribution={},
+        config=config_dict_for_ai,
+        kpi_metrics={},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -158,9 +157,7 @@ def render_ai_analysis(
         "Requires an LLM provider (Bedrock or Anthropic) to be configured."
     )
 
-    config_dict_for_ai, result_summary, distribution, kpi_metrics = _build_ai_context(
-        sim_result, loaded_summary, loaded_distribution,
-    )
+    context = _build_ai_context(sim_result, loaded_summary, loaded_distribution)
 
     insights_tab, chat_tab, optimizer_tab = st.tabs(
         [
@@ -173,20 +170,21 @@ def render_ai_analysis(
     # --- Insights tab ---
     with insights_tab:
         _render_insights_tab(
-            result_summary=result_summary,
-            distribution=distribution,
-            config_dict=config_dict_for_ai,
-            kpi_metrics=kpi_metrics,
+            result_summary=context.result_summary,
+            distribution=context.distribution,
+            config_dict=context.config,
+            kpi_metrics=context.kpi_metrics,
             get_llm_client=get_llm_client,
+            feature_name=context.feature_name,
         )
 
     # --- Ask a Question tab ---
     with chat_tab:
         _render_chat_tab(
-            result_summary=result_summary,
-            distribution=distribution,
-            config_dict=config_dict_for_ai,
-            kpi_metrics=kpi_metrics,
+            result_summary=context.result_summary,
+            distribution=context.distribution,
+            config_dict=context.config,
+            kpi_metrics=context.kpi_metrics,
             get_llm_client=get_llm_client,
         )
 
@@ -210,6 +208,7 @@ def _render_insights_tab(
     config_dict: dict[str, Any],
     kpi_metrics: dict[str, Any],
     get_llm_client: Any,
+    feature_name: str = "coin flip",
 ) -> None:
     """Render the Insights tab."""
     st.caption(
@@ -238,7 +237,7 @@ def _render_insights_tab(
                         distribution=distribution,
                         config=config_dict,
                         kpi_metrics=kpi_metrics,
-                        feature_name="coin flip",
+                        feature_name=feature_name,
                     )
                 )
                 if insights:
