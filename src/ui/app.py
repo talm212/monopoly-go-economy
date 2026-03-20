@@ -567,6 +567,42 @@ if has_any_result:
     render_results(sim_result, loaded_summary, loaded_distribution)
 
 
+# -- Download Report button --
+if has_any_result:
+    from src.ui.components.report_download import render_report_download
+
+    # Gather data for the PDF report from whichever source is available
+    _report_config: dict[str, Any] = {}
+    _report_kpis: dict[str, float] = {}
+    _report_dist: dict[str, int] = {}
+    _report_segments: dict[str, dict[str, float]] | None = None
+    _report_insights: list[dict[str, Any]] | None = st.session_state.get("ai_insights")
+
+    if sim_result is not None:
+        _report_kpis = sim_result.get_kpi_metrics()
+        _report_dist = sim_result.get_distribution()
+        _report_segments = sim_result.get_segments()
+        _cfg_obj: CoinFlipConfig | None = st.session_state.get("config")
+        if _cfg_obj is not None:
+            _report_config = _cfg_obj.to_dict()
+    elif loaded_summary is not None:
+        _report_kpis = {
+            k: float(v)
+            for k, v in loaded_summary.items()
+            if isinstance(v, (int, float)) and k != "threshold"
+        }
+        if loaded_distribution:
+            _report_dist = {str(k): int(v) for k, v in loaded_distribution.items()}
+
+    render_report_download(
+        config=_report_config,
+        kpi_metrics=_report_kpis,
+        distribution=_report_dist,
+        segments=_report_segments,
+        insights=_report_insights,
+    )
+
+
 # ===========================================================================
 # 5. AI ANALYSIS SECTION
 # ===========================================================================
