@@ -385,18 +385,17 @@ with st.sidebar:
 
                 st.caption(f"{created} — {float(total_pts):,.0f} pts")
 
-                # Editable name — just a text input, saves on change
+                # Editable name — saves on change, key tied to run_id for stability
                 new_name = st.text_input(
                     "Run name",
                     value=run_name,
-                    key=f"name_run_{idx}",
+                    key=f"name_{run_id}",
                     placeholder="Name this run...",
                     label_visibility="collapsed",
                 )
                 if new_name != run_name and run_id:
                     try:
                         store.update_run(run_id, {"name": new_name})
-                        st.rerun()
                     except Exception:
                         logger.warning("Failed to rename run %s", run_id)
 
