@@ -385,27 +385,24 @@ with st.sidebar:
 
                 st.caption(f"{created} — {float(total_pts):,.0f} pts")
 
-                # Editable name — on_change callback saves to JSON file
-                _name_key = f"name_{run_id}"
-                if _name_key not in st.session_state:
-                    st.session_state[_name_key] = run_name
-
-                def _save_name(_rid: str = run_id, _key: str = _name_key) -> None:
-                    _val = st.session_state.get(_key, "")
-                    try:
-                        store.update_run(_rid, {"name": _val})
-                        if _val:
-                            st.toast(f"Saved: {_val}")
-                    except Exception:
-                        logger.warning("Failed to rename run %s", _rid)
-
-                st.text_input(
-                    "Run name",
-                    key=_name_key,
-                    placeholder="Name this run...",
-                    label_visibility="collapsed",
-                    on_change=_save_name,
-                )
+                # Editable name — form ensures Enter triggers save
+                with st.form(key=f"rename_form_{run_id}", border=False):
+                    new_name = st.text_input(
+                        "Run name",
+                        value=run_name,
+                        placeholder="Name this run (press Enter to save)",
+                        label_visibility="collapsed",
+                    )
+                    submitted = st.form_submit_button(
+                        "Save", use_container_width=True, type="tertiary",
+                    )
+                    if submitted and new_name != run_name and run_id:
+                        try:
+                            store.update_run(run_id, {"name": new_name})
+                            st.toast(f"Saved: {new_name}")
+                            st.rerun()
+                        except Exception as exc:
+                            st.error(f"Failed to save: {exc}")
 
                 load_col, delete_col = st.columns(2)
                 with load_col:
