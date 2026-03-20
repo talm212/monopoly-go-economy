@@ -419,3 +419,119 @@ class TestIntegrationWithCSVFiles:
         assert output_df.shape[0] == 3
         assert "total_points" in output_df.columns
         assert "num_interactions" in output_df.columns
+
+
+# ---------------------------------------------------------------------------
+# execute_from_dataframe (in-memory DataFrame path for UI)
+# ---------------------------------------------------------------------------
+
+
+class TestExecuteFromDataFrame:
+    """execute_from_dataframe accepts a DataFrame directly, skipping file I/O."""
+
+    def test_returns_result_from_dataframe(
+        self,
+        coin_flip_config: CoinFlipConfig,
+        simulator: CoinFlipSimulator,
+    ) -> None:
+        """Accepts a pl.DataFrame and returns a valid CoinFlipResult."""
+        players = pl.DataFrame(
+            {
+                "user_id": [1, 2, 3],
+                "rolls_sink": [100, 200, 50],
+                "avg_multiplier": [10, 20, 5],
+                "about_to_churn": [False, False, True],
+            }
+        )
+        use_case = RunSimulationUseCase(reader=MagicMock(), simulator=simulator)
+        result = use_case.execute_from_dataframe(players, coin_flip_config, seed=42)
+
+        assert isinstance(result, CoinFlipResult)
+        assert result.total_interactions > 0
+        assert result.player_results.shape[0] == 3
+
+    def test_deterministic_with_seed(
+        self,
+        coin_flip_config: CoinFlipConfig,
+        simulator: CoinFlipSimulator,
+    ) -> None:
+        """Same seed produces identical results from DataFrame."""
+        players = pl.DataFrame(
+            {
+                "user_id": [1, 2, 3],
+                "rolls_sink": [100, 200, 50],
+                "avg_multiplier": [10, 20, 5],
+                "about_to_churn": [False, False, True],
+            }
+        )
+        use_case = RunSimulationUseCase(reader=MagicMock(), simulator=simulator)
+
+        result_a = use_case.execute_from_dataframe(players, coin_flip_config, seed=42)
+        result_b = use_case.execute_from_dataframe(players, coin_flip_config, seed=42)
+
+        assert result_a.total_points == result_b.total_points
+        assert result_a.total_interactions == result_b.total_interactions
+
+    def test_validates_input(
+        self,
+        coin_flip_config: CoinFlipConfig,
+        simulator: CoinFlipSimulator,
+    ) -> None:
+        """Invalid DataFrame raises ValueError."""
+        bad_players = pl.DataFrame(
+            {
+                "user_id": [1, 2],
+                "about_to_churn": [False, True],
+            }
+        )
+        use_case = RunSimulationUseCase(reader=MagicMock(), simulator=simulator)
+
+        with pytest.raises(ValueError, match="Input validation failed"):
+            use_case.execute_from_dataframe(bad_players, coin_flip_config, seed=42)
+
+    def test_does_not_call_reader_or_store(
+        self,
+        coin_flip_config: CoinFlipConfig,
+        simulator: CoinFlipSimulator,
+    ) -> None:
+        """execute_from_dataframe does not touch reader or store."""
+        mock_reader = MagicMock()
+        mock_store = MagicMock()
+        players = pl.DataFrame(
+            {
+                "user_id": [1, 2],
+                "rolls_sink": [100, 200],
+                "avg_multiplier": [10, 20],
+                "about_to_churn": [False, True],
+            }
+        )
+        use_case = RunSimulationUseCase(
+            reader=mock_reader, simulator=simulator, store=mock_store
+        )
+        result = use_case.execute_from_dataframe(players, coin_flip_config, seed=42)
+
+        assert isinstance(result, CoinFlipResult)
+        mock_reader.read_players.assert_not_called()
+        mock_store.save_run.assert_not_called()
+
+    def test_matches_execute_results(
+        self,
+        sample_input_csv: str,
+        coin_flip_config: CoinFlipConfig,
+        reader: LocalDataReader,
+        simulator: CoinFlipSimulator,
+    ) -> None:
+        """execute_from_dataframe produces same result as execute for the same data."""
+        use_case = RunSimulationUseCase(reader=reader, simulator=simulator)
+
+        # Run via file path
+        result_file = use_case.execute(
+            player_source=sample_input_csv, config=coin_flip_config, seed=42
+        )
+
+        # Run via DataFrame
+        players = pl.read_csv(sample_input_csv)
+        result_df = use_case.execute_from_dataframe(players, coin_flip_config, seed=42)
+
+        assert result_file.total_points == result_df.total_points
+        assert result_file.total_interactions == result_df.total_interactions

@@ -127,3 +127,45 @@ class RunSimulationUseCase:
             logger.info("Run stored with ID: %s", run_id)
 
         return result
+
+    def execute_from_dataframe(
+        self,
+        players: pl.DataFrame,
+        config: SimulatorConfig,
+        seed: int | None = None,
+    ) -> SimulationResult:
+        """Run simulation from an in-memory DataFrame (for UI use).
+
+        Unlike execute(), this skips file I/O and store persistence — the
+        caller is responsible for saving results if needed.
+
+        Steps:
+            1. Validate input via simulator's validator
+            2. Run simulation
+            3. Return result
+
+        Args:
+            players: In-memory Polars DataFrame with player data.
+            config: Feature-specific configuration satisfying SimulatorConfig.
+            seed: Optional RNG seed for reproducibility.
+
+        Returns:
+            SimulationResult from the simulator.
+
+        Raises:
+            ValueError: If input validation fails.
+        """
+        # 1. Validate input via the simulator's domain-level validator
+        errors = self._simulator.validate_input(players)
+        if errors:
+            raise ValueError(f"Input validation failed: {'; '.join(errors)}")
+
+        # 2. Simulate
+        logger.info("Running simulation with %d players (from DataFrame)", players.shape[0])
+        result = self._simulator.simulate(players, config, seed=seed)
+        logger.info(
+            "Simulation complete: %d interactions",
+            result.to_summary_dict().get("total_interactions", 0),
+        )
+
+        return result

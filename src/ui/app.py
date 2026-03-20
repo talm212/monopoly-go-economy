@@ -18,6 +18,7 @@ import streamlit as st
 from src.application.analyze_results import InsightsAnalyst
 from src.application.chat_assistant import ChatAssistant
 from src.application.optimize_config import ConfigOptimizer
+from src.application.run_simulation import RunSimulationUseCase
 from src.domain.models.coin_flip import CoinFlipConfig, CoinFlipResult
 from src.domain.models.insight import Insight, Severity
 from src.domain.models.optimization import (
@@ -140,6 +141,15 @@ def _get_reader() -> LocalDataReader:
 
 
 @st.cache_resource
+def _get_use_case() -> RunSimulationUseCase:
+    """Return a singleton RunSimulationUseCase wired with CoinFlipSimulator."""
+    return RunSimulationUseCase(
+        reader=_get_reader(),
+        simulator=CoinFlipSimulator(),
+    )
+
+
+@st.cache_resource
 def _get_llm_client():  # noqa: ANN202
     """Return a singleton LLM client (cached across reruns)."""
     from src.infrastructure.llm.client import get_llm_client
@@ -153,6 +163,7 @@ def _get_llm_client():  # noqa: ANN202
 
 store = _get_store()
 _reader = _get_reader()
+_use_case = _get_use_case()
 
 
 # ---------------------------------------------------------------------------
@@ -710,8 +721,7 @@ if run_clicked and has_players and has_config:
 
     try:
         with st.spinner("Running simulation..."):
-            simulator = CoinFlipSimulator()
-            result = simulator.simulate(player_data_run, config_run, seed=seed)
+            result = _use_case.execute_from_dataframe(player_data_run, config_run, seed=seed)
 
         st.session_state["simulation_result"] = result
         st.session_state["config_changed_since_run"] = False
@@ -1165,8 +1175,7 @@ if has_any_result:
                 ) -> dict[str, Any]:
                     """Simulate wrapper for the optimizer."""
                     cfg = CoinFlipConfig.from_dict(cfg_dict)
-                    sim = CoinFlipSimulator()
-                    res = sim.simulate(players, cfg)
+                    res = _use_case.execute_from_dataframe(players, cfg)
                     summary = res.to_summary_dict()
                     summary.update(res.get_kpi_metrics())
                     return summary
@@ -1244,8 +1253,9 @@ if has_any_result:
                     # Auto-run if player data exists
                     player_data_apply: pl.DataFrame | None = st.session_state.get("player_data")
                     if player_data_apply is not None:
-                        simulator = CoinFlipSimulator()
-                        new_result = simulator.simulate(player_data_apply, applied_config)
+                        new_result = _use_case.execute_from_dataframe(
+                            player_data_apply, applied_config
+                        )
                         st.session_state["simulation_result"] = new_result
                         st.session_state["config_changed_since_run"] = False
 
