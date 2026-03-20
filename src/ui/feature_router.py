@@ -38,6 +38,12 @@ FEATURE_REGISTRY: dict[str, FeatureUIConfig] = {
         icon="\U0001f3b2",
         description="Sequential coin-flip chain simulation",
     ),
+    "loot_table": FeatureUIConfig(
+        name="loot_table",
+        display_name="Loot Table",
+        icon="\U0001f381",
+        description="Weighted loot pool simulation with rarity tiers and pity system",
+    ),
 }
 
 DEFAULT_FEATURE = "coin_flip"
