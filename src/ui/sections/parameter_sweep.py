@@ -91,6 +91,11 @@ def render_parameter_sweep(
         simulator: CoinFlipSimulator instance for running simulations.
     """
     with st.expander("Parameter Sweep", expanded=False):
+        st.caption(
+            "Sweep one config parameter across a range of values to see how it affects KPIs. "
+            "For example, vary p_success_1 from 30% to 80% to find the sweet spot. "
+            "Each step runs a full simulation — results appear as a line chart and data table."
+        )
         if players is None or base_config is None:
             st.info("Upload player data and config to use parameter sweep.")
             return
@@ -188,6 +193,7 @@ def render_parameter_sweep(
             type="primary",
             key="sweep_run",
             use_container_width=True,
+            help="Runs one simulation per step, collecting KPI metrics at each value.",
         )
 
         if run_sweep:
@@ -272,4 +278,5 @@ def _render_sweep_results(
         file_name="parameter_sweep_results.csv",
         mime="text/csv",
         key="sweep_download",
+        help="Download all sweep points with every KPI value as a CSV file.",
     )

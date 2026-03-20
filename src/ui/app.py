@@ -455,6 +455,12 @@ with run_col:
         use_container_width=True,
         key="cf_run",
         disabled=run_disabled,
+        help=(
+            "Runs the coin-flip simulation for all uploaded players using the current config.\n\n"
+            "Each player gets `rolls_sink / avg_multiplier` interactions. "
+            "Each interaction is a flip chain up to `max_successes` depth. "
+            "Results auto-save to history."
+        ),
     )
 
 # --- Execute simulation ---

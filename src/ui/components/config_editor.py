@@ -12,6 +12,23 @@ logger = logging.getLogger(__name__)
 
 _PERCENTAGE_PATTERN = re.compile(r"^(\d+(?:\.\d+)?)%$")
 
+# Help texts for known config parameters
+_PARAM_HELP: dict[str, str] = {
+    "p_success_1": "Probability of landing heads on flip 1. Higher = more players advance.",
+    "p_success_2": "Probability of landing heads on flip 2 (after passing flip 1).",
+    "p_success_3": "Probability of landing heads on flip 3 (after passing flips 1-2).",
+    "p_success_4": "Probability of landing heads on flip 4 (after passing flips 1-3).",
+    "p_success_5": "Probability of landing heads on flip 5 (after passing flips 1-4).",
+    "points_success_1": "Points awarded for reaching depth 1 (first successful flip).",
+    "points_success_2": "Points awarded for reaching depth 2 (cumulative with depth 1).",
+    "points_success_3": "Points awarded for reaching depth 3 (cumulative with depths 1-2).",
+    "points_success_4": "Points awarded for reaching depth 4 (cumulative with depths 1-3).",
+    "points_success_5": "Points awarded for reaching depth 5 (jackpot — cumulative with all).",
+    "max_successes": "Maximum flip chain depth. Determines how many consecutive flips a player can attempt per interaction.",
+    "churn_boost_multiplier": "Multiplier applied to flip probabilities for about-to-churn players. E.g., 1.3 = 30% boost, capped at 100%.",
+    "reward_threshold": "Point threshold for the '% Above Threshold' KPI. Players with total_points above this value are counted.",
+}
+
 
 def _is_percentage(value: Any) -> bool:
     """Check whether a value is a percentage string like '60%'."""
@@ -51,10 +68,11 @@ def render_config_editor(
     for param_name, value in config.items():
         widget_key = f"{key_prefix}_{param_name}"
         display_label = param_name.replace("_", " ").title()
+        param_help = _PARAM_HELP.get(param_name)
 
         # Order matters: check bool before int (bool is a subclass of int in Python)
         if isinstance(value, bool):
-            edited[param_name] = st.checkbox(display_label, value=value, key=widget_key)
+            edited[param_name] = st.checkbox(display_label, value=value, key=widget_key, help=param_help)
 
         elif _is_percentage(value):
             pct_value = _parse_percentage(value)
@@ -66,6 +84,7 @@ def render_config_editor(
                 step=0.5,
                 format="%.1f%%",
                 key=widget_key,
+                help=param_help,
             )
             edited[param_name] = f"{slider_result}%"
 
@@ -76,6 +95,7 @@ def render_config_editor(
                     value=value,
                     step=1,
                     key=widget_key,
+                    help=param_help,
                 )
             )
 
@@ -87,11 +107,12 @@ def render_config_editor(
                     step=0.01,
                     format="%.4f",
                     key=widget_key,
+                    help=param_help,
                 )
             )
 
         elif isinstance(value, str):
-            edited[param_name] = st.text_input(display_label, value=value, key=widget_key)
+            edited[param_name] = st.text_input(display_label, value=value, key=widget_key, help=param_help)
 
         else:
             # Fallback: render as text and preserve original type

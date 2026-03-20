@@ -227,6 +227,7 @@ def _render_insights_tab(
         type="primary",
         use_container_width=True,
         key="ai_generate_insights",
+        help="Sends your simulation KPIs and config to the AI for analysis. Returns findings ranked by severity with actionable recommendations.",
     )
 
     if generate_clicked:
@@ -366,6 +367,11 @@ def _render_optimizer_tab(
         type="primary",
         use_container_width=True,
         key="opt_run",
+        help=(
+            "The AI iteratively adjusts config parameters to reach your target KPI.\n\n"
+            "Each iteration: simulate → evaluate → AI suggests new config → apply guardrails → repeat. "
+            "Stops when the target is reached or max iterations hit."
+        ),
     )
 
     if optimize_clicked:

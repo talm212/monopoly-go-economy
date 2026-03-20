@@ -245,6 +245,7 @@ def _render_data_tab(display: ResultsDisplay) -> None:
         "simulation_results.csv",
         "text/csv",
         key="download_results_csv",
+        help="Download the full per-player results table as CSV. Includes user_id, total_points, num_interactions, and all original player columns.",
     )
     st.dataframe(result_df, use_container_width=True, hide_index=True)
     st.caption(f"Showing {result_df.height:,} player rows.")

@@ -83,6 +83,7 @@ def render_sidebar_history(
     """
     with st.sidebar:
         st.header("History")
+        st.caption("Past simulation runs, sorted newest first. Load a run to view its results, or compare two runs side-by-side.")
 
         all_runs = store.list_runs(feature=feature, limit=_MAX_DISPLAY_RUNS)
 
@@ -108,6 +109,7 @@ def render_sidebar_history(
                         key=f"name_{run_id}",
                         placeholder="Name this run...",
                         label_visibility="collapsed",
+                        help="Type a name and press Enter to save. Helps you find this run later.",
                     )
                     if new_name != run_name and run_id:
                         try:
@@ -118,7 +120,7 @@ def render_sidebar_history(
 
                     load_col, delete_col = st.columns(2)
                     with load_col:
-                        if st.button("Load", key=f"load_{run_id}", use_container_width=True):
+                        if st.button("Load", key=f"load_{run_id}", use_container_width=True, help="Restore this run's config and results to the main view."):
                             run_config = run.get("config", {})
                             try:
                                 if run_config:
@@ -148,7 +150,7 @@ def render_sidebar_history(
                             except Exception as exc:
                                 st.error(f"Failed to load run: {exc}")
                     with delete_col:
-                        if st.button("Delete", key=f"del_{run_id}", use_container_width=True):
+                        if st.button("Delete", key=f"del_{run_id}", use_container_width=True, help="Permanently remove this run from history."):
                             try:
                                 store.delete_run(run["run_id"])
                                 st.toast("Run deleted.")
@@ -172,6 +174,7 @@ def render_sidebar_history(
                     format_func=lambda x: run_labels.get(x, x),
                     index=0,
                     key="sidebar_compare_a",
+                    help="First run to compare — shown on the left side.",
                 )
                 default_b = 1 if len(run_ids) > 1 else 0
                 selected_b = st.selectbox(
@@ -180,10 +183,11 @@ def render_sidebar_history(
                     format_func=lambda x: run_labels.get(x, x),
                     index=default_b,
                     key="sidebar_compare_b",
+                    help="Second run to compare — shown on the right side.",
                 )
 
                 if selected_a and selected_b and selected_a != selected_b:
-                    if st.button("Compare Side-by-Side", type="primary", use_container_width=True):
+                    if st.button("Compare Side-by-Side", type="primary", use_container_width=True, help="Show KPI comparison, distribution overlay, and config diff between two runs."):
                         st.session_state["comparison_mode"] = True
                         st.session_state["comparison_runs"] = (
                             store.get_run(selected_a),

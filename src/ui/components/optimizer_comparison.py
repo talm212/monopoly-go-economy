@@ -376,5 +376,6 @@ def render_optimizer_comparison(
             type="primary",
             use_container_width=True,
             key="opt_apply_comparison",
+            help="Replaces your current config with the optimized values. You can then re-run the simulation to see the full results.",
         )
     )

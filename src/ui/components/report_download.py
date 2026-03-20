@@ -58,4 +58,5 @@ def render_report_download(
         file_name=f"{feature_name}_simulation_report.pdf",
         mime="application/pdf",
         key="download_report_pdf",
+        help="Download a PDF report with config, KPIs, distribution, churn segments, and AI insights (if generated). Ready to share with stakeholders.",
     )
