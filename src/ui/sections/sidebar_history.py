@@ -13,7 +13,7 @@ from typing import Any
 import streamlit as st
 
 from src.application.config_conversion import config_obj_to_display
-from src.domain.models.coin_flip import CoinFlipConfig
+from src.domain.models.coin_flip import CoinFlipConfig, CoinFlipResult
 from src.infrastructure.store.local_store import LocalSimulationStore
 
 logger = logging.getLogger(__name__)
@@ -135,13 +135,32 @@ def render_sidebar_history(
                                         if _k.startswith("cf_cfg_"):
                                             del st.session_state[_k]
 
-                                # Load result summary + distribution for display
+                                # Try to load full player results (for 3-tab view)
                                 run_summary = run.get("result_summary", {})
                                 run_dist = run.get("distribution", {})
-                                if run_summary:
+                                player_df = store.load_player_results(run_id)
+
+                                if player_df is not None and run_summary:
+                                    # Reconstruct full CoinFlipResult for all 3 tabs
+                                    success_counts = {
+                                        int(k): int(v) for k, v in run_dist.items()
+                                    } if run_dist else {}
+                                    full_result = CoinFlipResult(
+                                        player_results=player_df,
+                                        total_interactions=int(run_summary.get("total_interactions", 0)),
+                                        success_counts=success_counts,
+                                        total_points=float(run_summary.get("total_points", 0)),
+                                        players_above_threshold=int(run_summary.get("players_above_threshold", 0)),
+                                        threshold=float(run_summary.get("threshold", 100)),
+                                    )
+                                    st.session_state["simulation_result"] = full_result
+                                    st.session_state.pop("loaded_run_summary", None)
+                                    st.session_state.pop("loaded_run_distribution", None)
+                                    _clear_stale_ai_data()
+                                elif run_summary:
+                                    # Fallback: summary-only view (old runs without parquet)
                                     st.session_state["loaded_run_summary"] = run_summary
                                     st.session_state["loaded_run_distribution"] = run_dist
-                                    # Clear full result so loaded view takes over
                                     st.session_state.pop("simulation_result", None)
                                     _clear_stale_ai_data()
 

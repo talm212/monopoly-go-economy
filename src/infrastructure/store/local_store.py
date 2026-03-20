@@ -1,8 +1,8 @@
 """Local JSON-based simulation history store.
 
 Persists simulation run metadata and summaries as individual JSON files
-in a local directory. Designed for the Streamlit dashboard to support
-run history browsing, comparison, and CSV export.
+in a local directory. Optionally stores the full per-player DataFrame
+as Parquet for reconstructing detailed results on load.
 """
 
 from __future__ import annotations
@@ -14,6 +14,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import polars as pl
+
 logger = logging.getLogger(__name__)
 
 
@@ -24,11 +26,17 @@ class LocalSimulationStore:
         self._store_dir = Path(store_dir)
         self._store_dir.mkdir(parents=True, exist_ok=True)
 
-    def save_run(self, run: dict[str, Any]) -> str:
+    def save_run(
+        self,
+        run: dict[str, Any],
+        player_results: pl.DataFrame | None = None,
+    ) -> str:
         """Save run data and return the generated run_id (UUID).
 
         The saved JSON contains run_id, feature, created_at (ISO timestamp),
-        config, result_summary, and distribution.
+        config, result_summary, and distribution.  When *player_results* is
+        provided, the full DataFrame is stored as a Parquet file alongside
+        the JSON so that loaded runs can reconstruct all three result tabs.
         """
         run_id = uuid.uuid4().hex
         created_at = datetime.now(tz=UTC).isoformat()
@@ -42,6 +50,12 @@ class LocalSimulationStore:
             "result_summary": run.get("result_summary", {}),
             "distribution": run.get("distribution", {}),
         }
+
+        # Save optional full player results as Parquet
+        if player_results is not None:
+            parquet_path = self._store_dir / f"{run_id}.parquet"
+            player_results.write_parquet(parquet_path)
+            record["has_player_results"] = True
 
         file_path = self._store_dir / f"{run_id}.json"
         with open(file_path, "w") as f:
@@ -107,6 +121,16 @@ class LocalSimulationStore:
 
         logger.info("Updated simulation run %s: %s", run_id, list(updates.keys()))
 
+    def load_player_results(self, run_id: str) -> pl.DataFrame | None:
+        """Load the full player results DataFrame for a run, if saved.
+
+        Returns None if no Parquet file exists for this run.
+        """
+        parquet_path = self._store_dir / f"{run_id}.parquet"
+        if not parquet_path.exists():
+            return None
+        return pl.read_parquet(parquet_path)
+
     def delete_run(self, run_id: str) -> None:
         """Delete a run by ID. Raises FileNotFoundError if not found."""
         file_path = self._store_dir / f"{run_id}.json"
@@ -114,4 +138,10 @@ class LocalSimulationStore:
             raise FileNotFoundError(f"No simulation run found with id: {run_id}")
 
         file_path.unlink()
+
+        # Also remove the parquet file if it exists
+        parquet_path = self._store_dir / f"{run_id}.parquet"
+        if parquet_path.exists():
+            parquet_path.unlink()
+
         logger.info("Deleted simulation run %s", run_id)

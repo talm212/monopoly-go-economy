@@ -488,7 +488,8 @@ if run_clicked and has_players and has_config:
                     "config": config_run.to_dict(),
                     "result_summary": _save_summary,
                     "distribution": result.get_distribution(),
-                }
+                },
+                player_results=result.player_results,
             )
         except Exception:
             logger.exception("Failed to auto-save simulation run")
@@ -628,15 +629,21 @@ if has_any_result:
 # 6. PARAMETER SWEEP SECTION
 # ===========================================================================
 
-if has_any_result and has_players and has_config:
-    st.markdown("---")
-    from src.ui.sections.parameter_sweep import render_parameter_sweep
+if has_any_result and has_config:
+    # Use uploaded player data, or fall back to player data from loaded result
+    _sweep_players: pl.DataFrame | None = st.session_state.get("player_data")
+    if _sweep_players is None and sim_result is not None:
+        _sweep_players = sim_result.player_results
 
-    render_parameter_sweep(
-        players=st.session_state.get("player_data"),
-        base_config=st.session_state.get("config"),
-        simulator=CoinFlipSimulator(),
-    )
+    if _sweep_players is not None:
+        st.markdown("---")
+        from src.ui.sections.parameter_sweep import render_parameter_sweep
+
+        render_parameter_sweep(
+            players=_sweep_players,
+            base_config=st.session_state.get("config"),
+            simulator=CoinFlipSimulator(),
+        )
 
 
 # ===========================================================================
