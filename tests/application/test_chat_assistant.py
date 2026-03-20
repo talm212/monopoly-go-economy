@@ -270,7 +270,7 @@ class TestChatAssistant:
         )
 
         assert isinstance(result, str)
-        assert "sorry" in result.lower() or "couldn't" in result.lower()
+        assert "failed" in result.lower() or "error" in result.lower()
 
     @pytest.mark.asyncio
     async def test_system_prompt_is_data_analyst(

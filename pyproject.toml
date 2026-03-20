@@ -43,6 +43,10 @@ markers = [
     "e2e: end-to-end browser tests (requires Streamlit server)",
 ]
 addopts = "--strict-markers -v -m 'not e2e'"
+filterwarnings = [
+    "ignore::DeprecationWarning:pytest_asyncio",
+    "ignore::DeprecationWarning:asyncio",
+]
 
 [tool.mypy]
 python_version = "3.12"

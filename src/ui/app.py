@@ -985,10 +985,10 @@ if has_any_result:
                 except ValueError as exc:
                     st.error(f"Configuration error: {exc}")
                     logger.exception("LLM configuration error")
-                except Exception:
+                except Exception as exc:
                     st.error(
-                        "Failed to generate insights. "
-                        "Please check your API key and network connection, then try again."
+                        f"Failed to generate insights: `{type(exc).__name__}: {exc}`\n\n"
+                        f"Check your LLM provider config (LLM_PROVIDER, AWS credentials, or ANTHROPIC_API_KEY)."
                     )
                     logger.exception("Unexpected error generating insights")
 
