@@ -1,0 +1,89 @@
+# =============================================================================
+# Deploy to AWS — CI/CD Pipeline
+# =============================================================================
+# Triggered on every push to main. Runs tests first, then deploys via CDK.
+#
+# SETUP INSTRUCTIONS (one-time):
+# 1. Create an IAM OIDC identity provider in AWS for GitHub Actions:
+#    - Provider URL: https://token.actions.githubusercontent.com
+#    - Audience: sts.amazonaws.com
+#    - See: https://docs.github.com/en/actions/security-for-github-actions/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services
+#
+# 2. Create an IAM role that GitHub Actions can assume via OIDC:
+#    - Trust policy: allow the OIDC provider with condition on your repo
+#      "token.actions.githubusercontent.com:sub": "repo:<org>/<repo>:ref:refs/heads/main"
+#    - Permissions needed:
+#      * CloudFormation (full access for CDK)
+#      * ECR (create/push images)
+#      * ECS (update services/tasks)
+#      * EC2 (VPC, security groups, ALB)
+#      * S3 (CDK toolkit bucket)
+#      * IAM (PassRole for ECS task roles)
+#      * Logs (CloudWatch log groups)
+#      * SSM (Parameter Store for CDK context)
+#      * Elastic Load Balancing
+#      * Secrets Manager (if used by pipeline stack)
+#      * SNS (if used for monitoring alerts)
+#    - Recommended: use AWS managed policy "AdministratorAccess" initially,
+#      then scope down to least privilege once the pipeline is stable.
+#
+# 3. Add the role ARN as a GitHub repository secret:
+#    - Secret name: AWS_DEPLOY_ROLE_ARN
+#    - Value: arn:aws:iam::585008046382:role/<your-role-name>
+#    - Go to: Repo → Settings → Secrets and variables → Actions → New repository secret
+# =============================================================================
+
+name: Deploy to AWS
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write   # Required for OIDC authentication with AWS
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install poetry && poetry install --no-interaction
+
+      - name: Run tests
+        run: poetry run pytest --tb=short -q
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Install dependencies
+        run: |
+          pip install poetry
+          poetry install --no-interaction
+          npm install -g aws-cdk
+
+      - name: CDK Deploy
+        run: cdk deploy MonopolyEconomy-Compute --app "poetry run python3 infra/app.py" --require-approval never
