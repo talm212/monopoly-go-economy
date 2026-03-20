@@ -230,31 +230,33 @@ def _render_segment_metrics(segment: pl.DataFrame, label: str) -> None:
     st.metric(
         "Player Count", f"{segment.height:,}",
         help=(
-            f"Count of players in the {label} segment. "
+            f"Count of players in the **{label}** segment.\n\n"
             f"Segmented by the about_to_churn flag from the uploaded CSV."
         ),
     )
     st.metric(
         "Avg Points / Player", _fmt_num(mean_val),
         help=(
-            f"Calculation: sum(total_points) / count(players) for {label} segment only. "
-            f"Churn players get a 1.3x boost on flip probabilities (capped at 1.0), "
+            f"**Calculation:** sum(total_points) / count(players) for {label} segment\n\n"
+            f"**Churn boost:** players with about_to_churn=true get "
+            f"boosted_p = min(p_success_i * 1.3, 1.0)\n"
             f"so their average is expected to be higher."
         ),
     )
     st.metric(
         "Median Points / Player", _fmt_num(median_val),
         help=(
-            f"Middle value of total_points for {label} players when sorted. "
+            f"Middle value of total_points for **{label}** players when sorted.\n\n"
             f"Compare mean vs median to detect skew in the distribution."
         ),
     )
     st.metric(
         "Total Points", _fmt_num(total_val),
         help=(
-            f"Calculation: sum(total_points) for all {label} players. "
-            f"Each player's total_points = sum over interactions of "
-            f"(cumulative points at success depth * avg_multiplier)."
+            f"**Calculation:** sum(total_points) for all {label} players\n\n"
+            f"**Parameters:**\n"
+            f"- total_points = sum over interactions of "
+            f"(cumulative points at success depth * avg_multiplier)"
         ),
     )
 
@@ -382,25 +384,38 @@ with st.sidebar:
                 run_id = run.get("run_id", "")
 
                 st.caption(created)
-                if run_name:
-                    st.write(f"**{run_name}** — {float(total_pts):,.0f} pts")
-                else:
-                    st.write(f"{run.get('feature', 'unknown')} | {float(total_pts):,.0f} pts")
 
-                # Editable name
-                new_name = st.text_input(
-                    "Name",
-                    value=run_name,
-                    key=f"name_run_{idx}",
-                    placeholder="Give this run a name...",
-                    label_visibility="collapsed",
-                )
-                if new_name != run_name and run_id:
-                    try:
-                        store.update_run(run_id, {"name": new_name})
+                # Inline rename: show text input when editing, label otherwise
+                editing_key = f"editing_run_{idx}"
+                is_editing = st.session_state.get(editing_key, False)
+
+                if is_editing:
+                    new_name = st.text_input(
+                        "Rename",
+                        value=run_name,
+                        key=f"name_run_{idx}",
+                        placeholder="Type a name and press Enter",
+                        label_visibility="collapsed",
+                    )
+                    if new_name != run_name and run_id:
+                        try:
+                            store.update_run(run_id, {"name": new_name})
+                        except Exception:
+                            logger.warning("Failed to rename run %s", run_id)
+                        st.session_state[editing_key] = False
                         st.rerun()
-                    except Exception:
-                        logger.warning("Failed to rename run %s", run_id)
+                    if st.button("Done", key=f"done_rename_{idx}", use_container_width=True):
+                        st.session_state[editing_key] = False
+                        st.rerun()
+                else:
+                    name_col, edit_col = st.columns([5, 1])
+                    with name_col:
+                        display_label = run_name if run_name else run.get("feature", "unknown")
+                        st.write(f"**{display_label}** — {float(total_pts):,.0f} pts")
+                    with edit_col:
+                        if st.button("✏️", key=f"edit_run_{idx}", help="Rename this run"):
+                            st.session_state[editing_key] = True
+                            st.rerun()
 
                 load_col, delete_col = st.columns(2)
                 with load_col:
@@ -597,8 +612,8 @@ with _setup_container:
             placeholder="Random",
             key="cf_seed",
             help=(
-                "Seeds the NumPy random number generator (numpy.random.default_rng). "
-                "All coin flip outcomes are generated at once as a random matrix. "
+                "Seeds the NumPy random number generator.\n\n"
+                "All coin flip outcomes are generated at once as a random matrix.\n"
                 "Same seed + same data + same config = identical results every time."
             ),
         )
@@ -679,42 +694,47 @@ if has_any_result:
 
     _KPI_HELP = {
         "Mean Points / Player": (
-            "Calculation: sum(total_points) / count(players). "
-            "Each player's total_points = sum of points from all their coin-flip interactions. "
-            "Per interaction: flip sequentially up to max_successes times. "
-            "Points = cumulative sum of points_success_1..points_success_depth (stop at first tails). "
-            "Final interaction points are multiplied by the player's avg_multiplier."
+            "**Calculation:** sum(total_points) / count(players)\n\n"
+            "**Parameters:**\n"
+            "- total_points per player = sum of points from all their coin-flip interactions\n"
+            "- Per interaction: flip up to max_successes times, stop at first tails\n"
+            "- Points = cumulative sum of points_success_1..points_success_depth\n"
+            "- Final points multiplied by the player's avg_multiplier"
         ),
         "Median Points / Player": (
-            "Calculation: middle value when all players' total_points are sorted. "
-            "Less sensitive to extreme outliers than the mean. "
-            "If mean >> median, a few players are earning disproportionately more."
+            "**Calculation:** middle value when all players' total_points are sorted\n\n"
+            "Less sensitive to outliers than the mean.\n"
+            "If mean >> median, a few players earn disproportionately more."
         ),
         "Total Points": (
-            "Calculation: sum of total_points across all players. "
-            "Each player's total_points = sum over interactions of "
-            "(cumulative points at success depth * avg_multiplier). "
-            "Reflects the total economy output of the simulation."
+            "**Calculation:** sum(total_points) across all players\n\n"
+            "**Parameters:**\n"
+            "- total_points per player = sum over interactions of "
+            "(cumulative points at success depth * avg_multiplier)\n"
+            "- Reflects the total economy output of the simulation"
         ),
         "% Above Threshold": (
-            "Calculation: count(players where total_points > reward_threshold) / count(players) * 100. "
-            "reward_threshold is set in the config (default 100). "
-            "Shows what fraction of the player base exceeds the reward cutoff."
+            "**Calculation:** count(players where total_points > threshold) "
+            "/ count(players) * 100\n\n"
+            "**Parameters:**\n"
+            "- reward_threshold: set in config (default 100)\n"
+            "- Shows what fraction of players exceed the reward cutoff"
         ),
         "Total Interactions": (
-            "Calculation: sum of (rolls_sink // avg_multiplier) for each player. "
-            "rolls_sink = total rolls available to the player. "
-            "avg_multiplier = average bet multiplier. "
-            "Each interaction triggers one coin-flip chain."
+            "**Calculation:** sum(rolls_sink // avg_multiplier) for each player\n\n"
+            "**Parameters:**\n"
+            "- rolls_sink: total rolls available to the player (from CSV)\n"
+            "- avg_multiplier: average bet multiplier (from CSV)\n"
+            "- Each interaction triggers one coin-flip chain"
         ),
         "Players Above Threshold": (
-            "Calculation: count of players where total_points > reward_threshold. "
-            "reward_threshold is set in the config (default 100)."
+            "**Calculation:** count of players where total_points > reward_threshold\n\n"
+            "- reward_threshold is set in config (default 100)"
         ),
         "Threshold": (
-            "The reward_threshold config parameter. "
-            "Players with total_points above this value are counted in 'Players Above Threshold' "
-            "and '% Above Threshold'."
+            "The reward_threshold config parameter.\n\n"
+            "Players with total_points above this value are counted in "
+            "'Players Above Threshold' and '% Above Threshold'."
         ),
     }
 
@@ -1018,9 +1038,10 @@ if has_any_result:
                 index=0,
                 key="opt_target_metric",
                 help=(
-                    "pct_above_threshold = count(players where total_points > threshold) / count(players). "
-                    "mean_points_per_player = sum(total_points) / count(players). "
-                    "total_points = sum of all players' total_points. "
+                    "**Metrics:**\n"
+                    "- **pct_above_threshold** = count(players where total_points > threshold) / count(players)\n"
+                    "- **mean_points_per_player** = sum(total_points) / count(players)\n"
+                    "- **total_points** = sum of all players' total_points\n\n"
                     "The AI adjusts probabilities and point values to move this metric toward your target."
                 ),
             )
@@ -1030,7 +1051,7 @@ if has_any_result:
                 step=0.1,
                 format="%.4f",
                 key="opt_target_value",
-                help="The desired value for the selected metric.",
+                help="The desired value for the selected metric.\n\nThe optimizer will try to make the metric converge to this number.",
             )
 
         with opt_col_right:
@@ -1040,9 +1061,9 @@ if has_any_result:
                 index=0,
                 key="opt_direction",
                 help=(
-                    "Target: converge to exact value. "
-                    "Maximize: push metric as high as possible. "
-                    "Minimize: push metric as low as possible."
+                    "- **Target:** converge to the exact target value\n"
+                    "- **Maximize:** push metric as high as possible\n"
+                    "- **Minimize:** push metric as low as possible"
                 ),
             )
             max_iterations = st.number_input(
@@ -1052,7 +1073,7 @@ if has_any_result:
                 value=10,
                 step=1,
                 key="opt_max_iter",
-                help="How many optimization rounds the AI will attempt before stopping.",
+                help="How many optimization rounds the AI will attempt before stopping.\n\nEach iteration runs a full simulation with adjusted config.",
             )
 
         optimize_clicked = st.button(
