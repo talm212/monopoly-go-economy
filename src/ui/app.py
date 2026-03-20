@@ -323,20 +323,9 @@ if not st.session_state.get("_app_initialized", False):
 
 st.title("Coin Flip Economy Simulator")
 
-# Injected CSS: History label near sidebar toggle + sticky KPI bar
+# Injected CSS: sticky KPI bar
 st.markdown(
     """<style>
-    /* History label — fixed position so it works regardless of Streamlit version */
-    .history-label {
-        position: fixed;
-        top: 12px;
-        left: 48px;
-        font-size: 14px;
-        color: #666;
-        font-weight: 500;
-        z-index: 1000;
-        pointer-events: none;
-    }
     /* Sticky KPI bar */
     [data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="sticky-kpi-bar"]) {
         position: sticky;
@@ -345,8 +334,7 @@ st.markdown(
         background-color: var(--background-color, white);
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    </style>
-    <div class="history-label">History &rarr;</div>""",
+    </style>""",
     unsafe_allow_html=True,
 )
 
