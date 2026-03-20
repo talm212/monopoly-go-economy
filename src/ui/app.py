@@ -138,7 +138,7 @@ def _config_obj_to_display(config: CoinFlipConfig) -> dict[str, Any]:
     """
     display: dict[str, Any] = {}
     for i, p in enumerate(config.probabilities, 1):
-        display[f"p_success_{i}"] = f"{p:.0%}" if p * 100 == int(p * 100) else str(p)
+        display[f"p_success_{i}"] = f"{round(p * 100):.0f}%"
     for i, v in enumerate(config.point_values, 1):
         display[f"points_success_{i}"] = int(v) if v == int(v) else v
     display["max_successes"] = config.max_successes
@@ -191,10 +191,8 @@ def _render_insight_card(insight: Insight) -> None:
     """Render a single insight as a styled card."""
     badge_html = _render_severity_badge(insight.severity)
 
-    st.markdown(
-        f"{badge_html}&ensp;**{insight.finding}**",
-        unsafe_allow_html=True,
-    )
+    st.markdown(badge_html, unsafe_allow_html=True)
+    st.markdown(f"**{insight.finding}**")
     st.markdown(f"*Recommendation:* {insight.recommendation}")
 
     if insight.metric_references:
@@ -224,10 +222,22 @@ def _render_segment_metrics(segment: pl.DataFrame, label: str) -> None:
     median_val = float(points_col.median() or 0.0)
     total_val = float(points_col.sum() or 0.0)
 
-    st.metric("Player Count", f"{segment.height:,}")
-    st.metric("Avg Points / Player", f"{mean_val:,.2f}")
-    st.metric("Median Points / Player", f"{median_val:,.2f}")
-    st.metric("Total Points", f"{total_val:,.0f}")
+    st.metric(
+        "Player Count", f"{segment.height:,}",
+        help=f"Number of players in the {label} segment.",
+    )
+    st.metric(
+        "Avg Points / Player", f"{mean_val:,.2f}",
+        help=f"Average points earned per {label} player.",
+    )
+    st.metric(
+        "Median Points / Player", f"{median_val:,.2f}",
+        help=f"Median points for {label} players — less sensitive to outliers.",
+    )
+    st.metric(
+        "Total Points", f"{total_val:,.0f}",
+        help=f"Sum of all points earned by {label} players.",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -313,18 +323,30 @@ if not st.session_state.get("_app_initialized", False):
 
 st.title("Coin Flip Economy Simulator")
 
-# Add "History" label next to the sidebar toggle via CSS
+# Injected CSS: History label near sidebar toggle + sticky KPI bar
 st.markdown(
     """<style>
-    [data-testid="collapsedControl"]::after,
-    [data-testid="stSidebarCollapsedControl"]::after,
-    button[kind="header"]::after {
-        content: " History";
+    /* History label — fixed position so it works regardless of Streamlit version */
+    .history-label {
+        position: fixed;
+        top: 12px;
+        left: 48px;
         font-size: 14px;
         color: #666;
         font-weight: 500;
+        z-index: 1000;
+        pointer-events: none;
     }
-    </style>""",
+    /* Sticky KPI bar */
+    [data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="sticky-kpi-bar"]) {
+        position: sticky;
+        top: 0;
+        z-index: 999;
+        background-color: var(--background-color, white);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    </style>
+    <div class="history-label">History &rarr;</div>""",
     unsafe_allow_html=True,
 )
 
@@ -547,6 +569,7 @@ with _setup_container:
             step=1,
             placeholder="Random",
             key="cf_seed",
+            help="Fix the random seed for reproducible results. Leave blank for a random seed.",
         )
         seed: int | None = int(seed_input) if seed_input is not None else None
 
@@ -623,7 +646,18 @@ if has_any_result:
     if loaded_summary and sim_result is None:
         st.info("Showing results from a past run. Upload player data and re-run for full analysis.")
 
+    _KPI_HELP = {
+        "Mean Points / Player": "Average total points earned per player across all coin-flip interactions.",
+        "Median Points / Player": "Middle value of player points — less affected by outliers than the mean.",
+        "Total Points": "Sum of all points earned by every player in the simulation.",
+        "% Above Threshold": "Percentage of players whose total points exceed the configured reward threshold.",
+        "Total Interactions": "Total number of coin-flip sequences triggered across all players.",
+        "Players Above Threshold": "Count of players whose total points exceed the reward threshold.",
+        "Threshold": "The reward threshold used to classify high-earning players.",
+    }
+
     with st.container(border=True):
+        st.markdown('<div data-testid="sticky-kpi-bar"></div>', unsafe_allow_html=True)
         if sim_result is not None:
             raw_kpis = sim_result.get_kpi_metrics()
             render_kpi_cards(
@@ -634,6 +668,7 @@ if has_any_result:
                     "% Above Threshold": round(raw_kpis["pct_above_threshold"] * 100, 2),
                 },
                 columns=4,
+                help_texts=_KPI_HELP,
             )
         elif loaded_summary:
             total_pts = loaded_summary.get("total_points", 0)
@@ -648,7 +683,9 @@ if has_any_result:
                     "Threshold": threshold,
                 },
                 columns=4,
+                help_texts=_KPI_HELP,
             )
+
 
 
 # ===========================================================================
@@ -672,6 +709,9 @@ if has_any_result:
         )
 
         with charts_tab:
+            st.caption(
+                "How points and flip outcomes are distributed across the player base."
+            )
             chart_left, chart_right = st.columns(2)
             with chart_left:
                 render_distribution_chart(
@@ -679,6 +719,10 @@ if has_any_result:
                     title="Success Depth Distribution",
                     x_label="Success Depth",
                     y_label="Interaction Count",
+                )
+                st.caption(
+                    "X-axis: number of consecutive successful flips in a chain. "
+                    "Y-axis: how many interactions reached that depth."
                 )
             with chart_right:
                 player_results = sim_result.player_results
@@ -709,9 +753,17 @@ if has_any_result:
                         )
                     )
                     st.altair_chart(points_hist, use_container_width=True)
+                    st.caption(
+                        "X-axis: total points earned by a player. "
+                        "Y-axis: number of players in that points range."
+                    )
 
         with churn_tab:
             player_results = sim_result.player_results
+            st.caption(
+                "Compares players flagged as about-to-churn (who receive a 1.3x probability boost) "
+                "against regular players."
+            )
             if "about_to_churn" in player_results.columns:
                 churn_df = player_results.filter(pl.col("about_to_churn"))
                 non_churn_df = player_results.filter(~pl.col("about_to_churn"))
@@ -765,7 +817,17 @@ if has_any_result:
             "AI analysis is based on previous results."
         )
 
-    insights_tab, chat_tab, optimizer_tab = st.tabs(["Insights", "Ask a Question", "Optimizer"])
+    st.caption(
+        "AI-powered analysis of your simulation results. "
+        "Requires an LLM provider (Bedrock or Anthropic) to be configured."
+    )
+    insights_tab, chat_tab, optimizer_tab = st.tabs(
+        [
+            "Insights",
+            "Ask a Question",
+            "Optimizer",
+        ]
+    )
 
     # Build shared context for AI — from full result or loaded summary
     _config_obj: CoinFlipConfig | None = st.session_state.get("config")
@@ -791,6 +853,10 @@ if has_any_result:
 
     # --- Insights tab ---
     with insights_tab:
+        st.caption(
+            "AI reviews your simulation KPIs and flags findings ranked by severity: "
+            "INFO (observation), WARNING (potential issue), CRITICAL (requires attention)."
+        )
         existing_insights: list[Insight] | None = st.session_state.get("ai_insights")
 
         button_label = "Regenerate Insights" if existing_insights else "Generate Insights"
@@ -847,6 +913,10 @@ if has_any_result:
 
     # --- Ask a Question tab ---
     with chat_tab:
+        st.caption(
+            "Chat with AI about your simulation results. Ask about trends, "
+            "anomalies, or what-if scenarios."
+        )
         try:
             llm_client_chat = get_llm_client()
             assistant = ChatAssistant(llm_client_chat)
@@ -866,6 +936,10 @@ if has_any_result:
 
     # --- Optimizer tab ---
     with optimizer_tab:
+        st.caption(
+            "AI iteratively tunes coin-flip config parameters to reach a target KPI value. "
+            "Each iteration runs a full simulation."
+        )
         opt_col_left, opt_col_right = st.columns(2)
 
         with opt_col_left:
@@ -874,6 +948,11 @@ if has_any_result:
                 options=list(_OPTIMIZER_METRICS),
                 index=0,
                 key="opt_target_metric",
+                help=(
+                    "pct_above_threshold: fraction of players above reward threshold. "
+                    "mean_points_per_player: average points earned. "
+                    "total_points: sum across all players."
+                ),
             )
             target_value = st.number_input(
                 "Target value",
@@ -881,6 +960,7 @@ if has_any_result:
                 step=0.1,
                 format="%.4f",
                 key="opt_target_value",
+                help="The desired value for the selected metric.",
             )
 
         with opt_col_right:
@@ -889,6 +969,11 @@ if has_any_result:
                 options=list(_DIRECTION_OPTIONS.keys()),
                 index=0,
                 key="opt_direction",
+                help=(
+                    "Target: converge to exact value. "
+                    "Maximize: push metric as high as possible. "
+                    "Minimize: push metric as low as possible."
+                ),
             )
             max_iterations = st.number_input(
                 "Max iterations",
@@ -897,6 +982,7 @@ if has_any_result:
                 value=10,
                 step=1,
                 key="opt_max_iter",
+                help="How many optimization rounds the AI will attempt before stopping.",
             )
 
         optimize_clicked = st.button(
@@ -1002,11 +1088,7 @@ if has_any_result:
                     # Write optimized config to session state
                     applied_config = CoinFlipConfig.from_dict(opt_best)
                     st.session_state["config"] = applied_config
-                    st.session_state["config_dict"] = _raw_dict_to_display(
-                        _display_dict_to_raw(
-                            {k: v for k, v in opt_best.items()}
-                        )
-                    )
+                    st.session_state["config_dict"] = _config_obj_to_display(applied_config)
 
                     # Auto-run if player data exists
                     player_data_apply: pl.DataFrame | None = st.session_state.get("player_data")
@@ -1042,7 +1124,7 @@ if has_any_result:
 # Empty state placeholder (when no results yet)
 # ===========================================================================
 
-if sim_result is None:
+if not has_any_result:
     st.markdown("---")
     st.info(
         "No simulation results yet. "

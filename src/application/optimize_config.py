@@ -141,8 +141,8 @@ class ConfigOptimizer:
             if key not in config:
                 logger.warning("LLM suggestion missing key: %s", key)
                 if current_config is not None:
-                    return current_config  # fall back to current
-                break
+                    return current_config
+                return config
 
         result = dict(config)
 

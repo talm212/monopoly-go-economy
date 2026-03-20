@@ -16,7 +16,7 @@ def normalize_churn_column(df: pl.DataFrame) -> pl.DataFrame:
     if "about_to_churn" not in df.columns:
         return df.with_columns(pl.lit(False).alias("about_to_churn"))
 
-    if df["about_to_churn"].dtype == pl.Utf8:
+    if df["about_to_churn"].dtype == pl.String:
         return df.with_columns(
             pl.col("about_to_churn").str.to_lowercase().eq("true").alias("about_to_churn")
         )

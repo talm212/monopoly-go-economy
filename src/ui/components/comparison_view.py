@@ -39,6 +39,13 @@ def _extract_kpi_metrics(run: dict[str, Any]) -> dict[str, float]:
     }
 
 
+_COMPARISON_HELP: dict[str, str] = {
+    "Total Points": "Sum of all points earned in this run.",
+    "Total Interactions": "Number of coin-flip sequences triggered.",
+    "Players Above Threshold": "Players whose total points exceed the reward threshold.",
+}
+
+
 def _render_metric_comparison(
     metrics_a: dict[str, float],
     metrics_b: dict[str, float],
@@ -54,7 +61,10 @@ def _render_metric_comparison(
             value_b = metrics_b.get(label, 0.0)
             delta = value_a - value_b
             delta_str = f"{delta:+,.2f}" if delta != 0 else None
-            st.metric(label=label, value=f"{value_a:,.2f}", delta=delta_str)
+            st.metric(
+                label=label, value=f"{value_a:,.2f}", delta=delta_str,
+                help=_COMPARISON_HELP.get(label),
+            )
 
     with col_b:
         st.markdown(f"#### {label_b}")
@@ -62,7 +72,10 @@ def _render_metric_comparison(
             value_a = metrics_a.get(label, 0.0)
             delta = value_b - value_a
             delta_str = f"{delta:+,.2f}" if delta != 0 else None
-            st.metric(label=label, value=f"{value_b:,.2f}", delta=delta_str)
+            st.metric(
+                label=label, value=f"{value_b:,.2f}", delta=delta_str,
+                help=_COMPARISON_HELP.get(label),
+            )
 
 
 def _render_distribution_comparison(
@@ -76,7 +89,7 @@ def _render_distribution_comparison(
         st.info("No distribution data available for comparison.")
         return
 
-    combined_keys = set(list(dist_a.keys()) + list(dist_b.keys()))
+    combined_keys = dist_a.keys() | dist_b.keys()
     all_keys = sorted(combined_keys, key=lambda x: int(x) if x.isdigit() else x)
 
     rows: list[dict[str, Any]] = []
@@ -123,7 +136,7 @@ def _render_config_diff(
     label_b: str,
 ) -> None:
     """Render configuration differences between two runs."""
-    all_keys = sorted(set(list(config_a.keys()) + list(config_b.keys())))
+    all_keys = sorted(config_a.keys() | config_b.keys())
 
     diff_rows: list[dict[str, str]] = []
     for key in all_keys:
