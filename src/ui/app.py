@@ -590,8 +590,11 @@ with _setup_container:
     has_config = "config" in st.session_state
 
     # Status message
+    loaded_from_history = loaded_summary is not None and sim_result is None
     if has_players and has_config:
         st.success("Ready to simulate")
+    elif loaded_from_history and has_config and not has_players:
+        st.warning("Upload player data to re-run with this config")
     elif not has_players and not has_config:
         st.info("Upload player data and config to get started")
     elif not has_players:
