@@ -365,6 +365,41 @@ class TestHistory:
         sidebar = page.locator("[data-testid='stSidebar']")
         expect(sidebar.locator("text=Compare Runs")).to_be_visible()
 
+    def test_rename_run_persists(self, page: Page) -> None:
+        # Run a simulation first to ensure we have a history entry
+        _run_simulation(page)
+        _open_sidebar(page)
+        sidebar = page.locator("[data-testid='stSidebar']")
+
+        # Find the name text input in the first history card
+        name_inputs = sidebar.locator("input[type='text']")
+        if name_inputs.count() == 0:
+            pytest.skip("No history runs with name input")
+
+        # Scroll the sidebar to make the input visible, then type a name
+        test_name = "E2E Test Run"
+        first_input = name_inputs.first
+        first_input.evaluate("el => el.scrollIntoView({block: 'center'})")
+        page.wait_for_timeout(500)
+        first_input.fill(test_name)
+        first_input.press("Enter")
+        page.wait_for_timeout(2000)
+
+        # Reload the page to verify persistence
+        page.reload()
+        page.wait_for_selector("[data-testid='stAppViewContainer']", timeout=10000)
+        page.wait_for_timeout(2000)
+
+        # Re-open sidebar and verify name persisted
+        _open_sidebar(page)
+        sidebar = page.locator("[data-testid='stSidebar']")
+        name_inputs = sidebar.locator("input[type='text']")
+        assert name_inputs.count() > 0
+        first_input = name_inputs.first
+        first_input.evaluate("el => el.scrollIntoView({block: 'center'})")
+        page.wait_for_timeout(500)
+        expect(first_input).to_have_value(test_name)
+
 
 # ---------------------------------------------------------------------------
 # 8. Tooltips & Info Icons (4 tests)
