@@ -394,7 +394,7 @@ with st.sidebar:
                         label_visibility="collapsed",
                     )
                     submitted = st.form_submit_button(
-                        "Save", use_container_width=True, type="tertiary",
+                        "save", use_container_width=True, type="tertiary",
                     )
                     if submitted and new_name != run_name and run_id:
                         try:
