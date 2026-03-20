@@ -583,6 +583,21 @@ if has_any_result:
 
 
 # ===========================================================================
+# 6. PARAMETER SWEEP SECTION
+# ===========================================================================
+
+if has_any_result and has_players and has_config:
+    st.markdown("---")
+    from src.ui.sections.parameter_sweep import render_parameter_sweep
+
+    render_parameter_sweep(
+        players=st.session_state.get("player_data"),
+        base_config=st.session_state.get("config"),
+        simulator=CoinFlipSimulator(),
+    )
+
+
+# ===========================================================================
 # Empty state placeholder (when no results yet)
 # ===========================================================================
 
