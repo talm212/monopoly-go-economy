@@ -385,19 +385,25 @@ with st.sidebar:
 
                 st.caption(f"{created} — {float(total_pts):,.0f} pts")
 
-                # Editable name — saves on change, key tied to run_id for stability
-                new_name = st.text_input(
+                # Editable name — on_change callback saves to JSON file
+                _name_key = f"name_{run_id}"
+                if _name_key not in st.session_state:
+                    st.session_state[_name_key] = run_name
+
+                def _save_name(_rid: str = run_id, _key: str = _name_key) -> None:
+                    _val = st.session_state.get(_key, "")
+                    try:
+                        store.update_run(_rid, {"name": _val})
+                    except Exception:
+                        logger.warning("Failed to rename run %s", _rid)
+
+                st.text_input(
                     "Run name",
-                    value=run_name,
-                    key=f"name_{run_id}",
+                    key=_name_key,
                     placeholder="Name this run...",
                     label_visibility="collapsed",
+                    on_change=_save_name,
                 )
-                if new_name != run_name and run_id:
-                    try:
-                        store.update_run(run_id, {"name": new_name})
-                    except Exception:
-                        logger.warning("Failed to rename run %s", run_id)
 
                 load_col, delete_col = st.columns(2)
                 with load_col:
