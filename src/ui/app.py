@@ -383,37 +383,22 @@ with st.sidebar:
                 run_name = run.get("name", "")
                 run_id = run.get("run_id", "")
 
-                st.caption(created)
+                st.caption(f"{created} — {float(total_pts):,.0f} pts")
 
-                # Inline editable name — click pencil to rename, Enter to save
-                editing_key = f"editing_run_{idx}"
-                is_editing = st.session_state.get(editing_key, False)
-                display_label = run_name if run_name else run.get("feature", "unknown")
-
-                if is_editing:
-                    new_name = st.text_input(
-                        "Rename",
-                        value=display_label if not run_name else run_name,
-                        key=f"name_run_{idx}",
-                        placeholder="Type a name and press Enter",
-                        label_visibility="collapsed",
-                    )
-                    if new_name != run_name and run_id:
-                        try:
-                            store.update_run(run_id, {"name": new_name})
-                        except Exception:
-                            logger.warning("Failed to rename run %s", run_id)
-                    st.session_state[editing_key] = False
-                    if new_name != run_name:
+                # Editable name — just a text input, saves on change
+                new_name = st.text_input(
+                    "Run name",
+                    value=run_name,
+                    key=f"name_run_{idx}",
+                    placeholder="Name this run...",
+                    label_visibility="collapsed",
+                )
+                if new_name != run_name and run_id:
+                    try:
+                        store.update_run(run_id, {"name": new_name})
                         st.rerun()
-                else:
-                    st.write(f"**{display_label}** — {float(total_pts):,.0f} pts")
-                    if st.button(
-                        "rename", key=f"edit_run_{idx}",
-                        type="tertiary",
-                    ):
-                        st.session_state[editing_key] = True
-                        st.rerun()
+                    except Exception:
+                        logger.warning("Failed to rename run %s", run_id)
 
                 load_col, delete_col = st.columns(2)
                 with load_col:
@@ -590,10 +575,11 @@ has_players = "player_data" in st.session_state
 has_config = "config" in st.session_state
 
 # Status message
-loaded_from_history = loaded_summary is not None and sim_result is None
+_has_loaded_summary = st.session_state.get("loaded_run_summary") is not None
+_has_sim_result = "simulation_result" in st.session_state
 if has_players and has_config:
     st.success("Ready to simulate")
-elif loaded_from_history and has_config and not has_players:
+elif _has_loaded_summary and not _has_sim_result and has_config and not has_players:
     st.warning("Upload player data to re-run with this config")
 elif not has_players and not has_config:
     st.info("Upload player data and config to get started")
