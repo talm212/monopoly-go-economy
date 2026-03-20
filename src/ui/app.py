@@ -26,7 +26,6 @@ from src.domain.models.optimization import (
     OptimizationTarget,
 )
 from src.domain.simulators.coin_flip import CoinFlipSimulator
-from src.infrastructure.llm.client import get_llm_client
 from src.infrastructure.readers.local_reader import LocalDataReader
 from src.infrastructure.readers.normalize import normalize_churn_column
 from src.infrastructure.store.local_store import LocalSimulationStore
@@ -77,11 +76,83 @@ _DIRECTION_OPTIONS = {
     "Minimize": OptimizationDirection.MINIMIZE,
 }
 
+_KPI_HELP = {
+    "Mean Points / Player": (
+        "**Calculation:** sum(total_points) / count(players)\n\n"
+        "**Parameters:**\n"
+        "- total_points per player = sum of points from all their coin-flip interactions\n"
+        "- Per interaction: flip up to max_successes times, stop at first tails\n"
+        "- Points = cumulative sum of points_success_1..points_success_depth\n"
+        "- Final points multiplied by the player's avg_multiplier"
+    ),
+    "Median Points / Player": (
+        "**Calculation:** middle value when all players' total_points are sorted\n\n"
+        "Less sensitive to outliers than the mean.\n"
+        "If mean >> median, a few players earn disproportionately more."
+    ),
+    "Total Points": (
+        "**Calculation:** sum(total_points) across all players\n\n"
+        "**Parameters:**\n"
+        "- total_points per player = sum over interactions of "
+        "(cumulative points at success depth * avg_multiplier)\n"
+        "- Reflects the total economy output of the simulation"
+    ),
+    "% Above Threshold": (
+        "**Calculation:** count(players where total_points > threshold) "
+        "/ count(players) * 100\n\n"
+        "**Parameters:**\n"
+        "- reward_threshold: set in config (default 100)\n"
+        "- Shows what fraction of players exceed the reward cutoff"
+    ),
+    "Total Interactions": (
+        "**Calculation:** sum(rolls_sink // avg_multiplier) for each player\n\n"
+        "**Parameters:**\n"
+        "- rolls_sink: total rolls available to the player (from CSV)\n"
+        "- avg_multiplier: average bet multiplier (from CSV)\n"
+        "- Each interaction triggers one coin-flip chain"
+    ),
+    "Players Above Threshold": (
+        "**Calculation:** count of players where total_points > reward_threshold\n\n"
+        "- reward_threshold is set in config (default 100)"
+    ),
+    "Threshold": (
+        "The reward_threshold config parameter.\n\n"
+        "Players with total_points above this value are counted in "
+        "'Players Above Threshold' and '% Above Threshold'."
+    ),
+}
+
+# ---------------------------------------------------------------------------
+# Cached resource factories
+# ---------------------------------------------------------------------------
+
+
+@st.cache_resource
+def _get_store() -> LocalSimulationStore:
+    """Return a singleton LocalSimulationStore (cached across reruns)."""
+    return LocalSimulationStore()
+
+
+@st.cache_resource
+def _get_reader() -> LocalDataReader:
+    """Return a singleton LocalDataReader (cached across reruns)."""
+    return LocalDataReader()
+
+
+@st.cache_resource
+def _get_llm_client():  # noqa: ANN202
+    """Return a singleton LLM client (cached across reruns)."""
+    from src.infrastructure.llm.client import get_llm_client
+
+    return get_llm_client()
+
+
 # ---------------------------------------------------------------------------
 # Shared instances
 # ---------------------------------------------------------------------------
 
-_reader = LocalDataReader()
+store = _get_store()
+_reader = _get_reader()
 
 
 # ---------------------------------------------------------------------------
@@ -268,7 +339,10 @@ def _render_segment_metrics(segment: pl.DataFrame, label: str) -> None:
 
 def _clear_stale_ai_data() -> None:
     """Clear AI-related session state when simulation results change."""
-    for key in ("ai_insights", "ai_chat_history", "optimizer_steps", "optimizer_best_config"):
+    for key in (
+        "ai_insights", "ai_chat_history", "optimizer_steps",
+        "optimizer_best_config", "cached_csv_data",
+    ):
         st.session_state.pop(key, None)
 
 
@@ -385,24 +459,20 @@ with st.sidebar:
 
                 st.caption(f"{created} — {float(total_pts):,.0f} pts")
 
-                # Editable name — form ensures Enter triggers save
-                with st.form(key=f"rename_form_{run_id}", border=False):
-                    new_name = st.text_input(
-                        "Run name",
-                        value=run_name,
-                        placeholder="Name this run (press Enter to save)",
-                        label_visibility="collapsed",
-                    )
-                    submitted = st.form_submit_button(
-                        "save", use_container_width=True, type="tertiary",
-                    )
-                    if submitted and new_name != run_name and run_id:
-                        try:
-                            store.update_run(run_id, {"name": new_name})
-                            st.toast(f"Saved: {new_name}")
-                            st.rerun()
-                        except Exception as exc:
-                            st.error(f"Failed to save: {exc}")
+                # Editable name — plain text_input, saves on rerun after Enter/blur
+                new_name = st.text_input(
+                    "Run name",
+                    value=run_name,
+                    key=f"name_{run_id}",
+                    placeholder="Name this run...",
+                    label_visibility="collapsed",
+                )
+                if new_name != run_name and run_id:
+                    try:
+                        store.update_run(run_id, {"name": new_name})
+                        st.toast(f"Saved: {new_name}")
+                    except Exception as exc:
+                        st.error(f"Failed to save: {exc}")
 
                 load_col, delete_col = st.columns(2)
                 with load_col:
@@ -693,52 +763,6 @@ if has_any_result:
     if loaded_summary and sim_result is None:
         st.info("Showing results from a past run. Upload player data and re-run for full analysis.")
 
-    _KPI_HELP = {
-        "Mean Points / Player": (
-            "**Calculation:** sum(total_points) / count(players)\n\n"
-            "**Parameters:**\n"
-            "- total_points per player = sum of points from all their coin-flip interactions\n"
-            "- Per interaction: flip up to max_successes times, stop at first tails\n"
-            "- Points = cumulative sum of points_success_1..points_success_depth\n"
-            "- Final points multiplied by the player's avg_multiplier"
-        ),
-        "Median Points / Player": (
-            "**Calculation:** middle value when all players' total_points are sorted\n\n"
-            "Less sensitive to outliers than the mean.\n"
-            "If mean >> median, a few players earn disproportionately more."
-        ),
-        "Total Points": (
-            "**Calculation:** sum(total_points) across all players\n\n"
-            "**Parameters:**\n"
-            "- total_points per player = sum over interactions of "
-            "(cumulative points at success depth * avg_multiplier)\n"
-            "- Reflects the total economy output of the simulation"
-        ),
-        "% Above Threshold": (
-            "**Calculation:** count(players where total_points > threshold) "
-            "/ count(players) * 100\n\n"
-            "**Parameters:**\n"
-            "- reward_threshold: set in config (default 100)\n"
-            "- Shows what fraction of players exceed the reward cutoff"
-        ),
-        "Total Interactions": (
-            "**Calculation:** sum(rolls_sink // avg_multiplier) for each player\n\n"
-            "**Parameters:**\n"
-            "- rolls_sink: total rolls available to the player (from CSV)\n"
-            "- avg_multiplier: average bet multiplier (from CSV)\n"
-            "- Each interaction triggers one coin-flip chain"
-        ),
-        "Players Above Threshold": (
-            "**Calculation:** count of players where total_points > reward_threshold\n\n"
-            "- reward_threshold is set in config (default 100)"
-        ),
-        "Threshold": (
-            "The reward_threshold config parameter.\n\n"
-            "Players with total_points above this value are counted in "
-            "'Players Above Threshold' and '% Above Threshold'."
-        ),
-    }
-
     with st.container(border=True):
         st.markdown('<div data-testid="sticky-kpi-bar"></div>', unsafe_allow_html=True)
         if sim_result is not None:
@@ -884,7 +908,10 @@ if has_any_result:
 
         with data_tab:
             result_df = sim_result.to_dataframe()
-            csv_data = result_df.write_csv()
+            # Cache CSV export in session state to avoid re-serializing on every rerun
+            if "cached_csv_data" not in st.session_state:
+                st.session_state["cached_csv_data"] = result_df.write_csv()
+            csv_data = st.session_state["cached_csv_data"]
             st.download_button(
                 "Download Results CSV",
                 csv_data,
@@ -992,7 +1019,7 @@ if has_any_result:
         if generate_clicked:
             with st.spinner("Analyzing simulation results with AI..."):
                 try:
-                    llm_client = get_llm_client()
+                    llm_client = _get_llm_client()
                     analyst = InsightsAnalyst(llm_client)
 
                     insights = run_async(
@@ -1040,7 +1067,7 @@ if has_any_result:
             "anomalies, or what-if scenarios."
         )
         try:
-            llm_client_chat = get_llm_client()
+            llm_client_chat = _get_llm_client()
             assistant = ChatAssistant(llm_client_chat)
 
             render_ai_chat_panel(
@@ -1146,7 +1173,7 @@ if has_any_result:
 
                 with st.spinner("Running optimizer (this may take a minute)..."):
                     try:
-                        llm_client_opt = get_llm_client()
+                        llm_client_opt = _get_llm_client()
                         optimizer = ConfigOptimizer(
                             llm_client=llm_client_opt,
                             max_iterations=int(max_iterations),
