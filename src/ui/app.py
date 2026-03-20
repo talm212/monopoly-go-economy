@@ -385,14 +385,15 @@ with st.sidebar:
 
                 st.caption(created)
 
-                # Inline rename: show text input when editing, label otherwise
+                # Inline editable name — click pencil to rename, Enter to save
                 editing_key = f"editing_run_{idx}"
                 is_editing = st.session_state.get(editing_key, False)
+                display_label = run_name if run_name else run.get("feature", "unknown")
 
                 if is_editing:
                     new_name = st.text_input(
                         "Rename",
-                        value=run_name,
+                        value=display_label if not run_name else run_name,
                         key=f"name_run_{idx}",
                         placeholder="Type a name and press Enter",
                         label_visibility="collapsed",
@@ -402,20 +403,17 @@ with st.sidebar:
                             store.update_run(run_id, {"name": new_name})
                         except Exception:
                             logger.warning("Failed to rename run %s", run_id)
-                        st.session_state[editing_key] = False
-                        st.rerun()
-                    if st.button("Done", key=f"done_rename_{idx}", use_container_width=True):
-                        st.session_state[editing_key] = False
+                    st.session_state[editing_key] = False
+                    if new_name != run_name:
                         st.rerun()
                 else:
-                    name_col, edit_col = st.columns([5, 1])
-                    with name_col:
-                        display_label = run_name if run_name else run.get("feature", "unknown")
-                        st.write(f"**{display_label}** — {float(total_pts):,.0f} pts")
-                    with edit_col:
-                        if st.button("✏️", key=f"edit_run_{idx}", help="Rename this run"):
-                            st.session_state[editing_key] = True
-                            st.rerun()
+                    st.write(f"**{display_label}** — {float(total_pts):,.0f} pts")
+                    if st.button(
+                        "rename", key=f"edit_run_{idx}",
+                        type="tertiary",
+                    ):
+                        st.session_state[editing_key] = True
+                        st.rerun()
 
                 load_col, delete_col = st.columns(2)
                 with load_col:
