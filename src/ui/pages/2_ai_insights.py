@@ -111,7 +111,7 @@ if result is None:
         "No simulation results found. "
         "Please run a simulation first on the **Run Simulation** page."
     )
-    st.page_link("pages/2_run_simulation.py", label="Go to Run Simulation")
+    st.page_link("pages/1_coin_flip.py", label="Go to Coin Flip Simulator")
     st.stop()
 
 # ---- API key check --------------------------------------------------------
