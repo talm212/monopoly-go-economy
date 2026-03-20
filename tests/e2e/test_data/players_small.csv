@@ -1,0 +1,6 @@
+user_id,rolls_sink,avg_multiplier,about_to_churn
+1,100,10,FALSE
+2,200,20,FALSE
+3,50,5,TRUE
+4,500,50,FALSE
+5,1000,100,FALSE

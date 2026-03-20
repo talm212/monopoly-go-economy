@@ -40,8 +40,9 @@ markers = [
     "unit: pure logic tests (no I/O)",
     "integration: tests with I/O boundaries",
     "slow: tests that take >5 seconds",
+    "e2e: end-to-end browser tests (requires Streamlit server)",
 ]
-addopts = "--strict-markers -v"
+addopts = "--strict-markers -v -m 'not e2e'"
 
 [tool.mypy]
 python_version = "3.12"
