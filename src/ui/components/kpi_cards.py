@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 
 import streamlit as st
 
@@ -12,6 +13,8 @@ logger = logging.getLogger(__name__)
 def _format_value(value: float | int) -> str:
     """Format a numeric value for display — no trailing .00 for whole numbers."""
     if isinstance(value, float):
+        if not math.isfinite(value):
+            return f"{value}"
         if value == int(value):
             return f"{int(value):,}"
         return f"{value:,.2f}"

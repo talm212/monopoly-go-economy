@@ -406,7 +406,7 @@ with st.sidebar:
 
                 load_col, delete_col = st.columns(2)
                 with load_col:
-                    if st.button("Load", key=f"load_run_{idx}", use_container_width=True):
+                    if st.button("Load", key=f"load_{run_id}", use_container_width=True):
                         run_config = run.get("config", {})
                         try:
                             if run_config:
@@ -416,6 +416,10 @@ with st.sidebar:
                                     loaded_cfg
                                 )
                                 st.session_state["config_uploaded"] = True
+                                # Purge stale config editor widget keys
+                                for _k in list(st.session_state.keys()):
+                                    if _k.startswith("cf_cfg_"):
+                                        del st.session_state[_k]
 
                             # Load result summary + distribution for display
                             run_summary = run.get("result_summary", {})
@@ -432,7 +436,7 @@ with st.sidebar:
                         except Exception as exc:
                             st.error(f"Failed to load run: {exc}")
                 with delete_col:
-                    if st.button("Delete", key=f"del_run_{idx}", use_container_width=True):
+                    if st.button("Delete", key=f"del_{run_id}", use_container_width=True):
                         try:
                             store.delete_run(run["run_id"])
                             st.toast("Run deleted.")
@@ -548,6 +552,10 @@ with _setup_container:
                 display_config = _raw_dict_to_display(raw_config)
                 st.session_state["config_dict"] = display_config
                 st.session_state["config_uploaded"] = True
+                # Purge stale config editor widget keys
+                for _k in list(st.session_state.keys()):
+                    if _k.startswith("cf_cfg_"):
+                        del st.session_state[_k]
             except Exception:
                 logger.exception("Failed to parse config CSV")
                 st.error("Failed to parse config CSV. Ensure it has 'Input' and 'Value' columns.")
@@ -656,8 +664,8 @@ if run_clicked and has_players and has_config:
         except Exception:
             logger.exception("Failed to auto-save simulation run")
 
-        st.success(
-            f"Simulation complete -- {result.total_interactions:,} interactions "
+        st.toast(
+            f"Simulation complete — {result.total_interactions:,} interactions "
             f"across {player_data_run.height:,} players."
         )
         st.rerun()

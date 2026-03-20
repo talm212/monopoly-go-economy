@@ -7,6 +7,7 @@ distribution data from run summary dictionaries.
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any
 
 import altair as alt
@@ -60,6 +61,8 @@ _COMPARISON_HELP: dict[str, str] = {
 
 def _fmt(value: float) -> str:
     """Format a number — drop .00 for whole numbers."""
+    if not math.isfinite(value):
+        return f"{value}"
     if value == int(value):
         return f"{int(value):,}"
     return f"{value:,.2f}"

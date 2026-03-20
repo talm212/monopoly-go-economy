@@ -47,4 +47,7 @@ class AnthropicAdapter:
             system=system if system else _DEFAULT_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],
         )
-        return response.content[0].text
+        text_blocks = [b for b in response.content if hasattr(b, "text")]
+        if not text_blocks:
+            raise ValueError("LLM returned no text content")
+        return text_blocks[0].text

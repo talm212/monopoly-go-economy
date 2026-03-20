@@ -7,6 +7,7 @@ CoinFlipResult wraps the per-player outcomes and provides summary accessors.
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -55,12 +56,12 @@ class CoinFlipConfig:
             )
 
         for i, p in enumerate(self.probabilities):
-            if p < 0.0 or p > 1.0:
-                raise ValueError(f"probability at index {i} is {p}; must be in [0, 1]")
+            if not math.isfinite(p) or p < 0.0 or p > 1.0:
+                raise ValueError(f"probability at index {i} is {p}; must be a finite number in [0, 1]")
 
         for i, v in enumerate(self.point_values):
-            if v < 0.0:
-                raise ValueError(f"point_values at index {i} is {v}; must be non-negative")
+            if not math.isfinite(v) or v < 0.0:
+                raise ValueError(f"point_values at index {i} is {v}; must be a finite non-negative number")
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize configuration to a plain dictionary."""

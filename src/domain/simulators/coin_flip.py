@@ -50,6 +50,9 @@ class CoinFlipSimulator:
             CoinFlipResult with per-player outcomes and aggregate metrics.
         """
         config.validate()
+        errors = self.validate_input(players)
+        if errors:
+            raise ValueError(f"Invalid player data: {'; '.join(errors)}")
         rng = np.random.default_rng(seed)
 
         # 1. Compute interactions per player: rolls_sink // avg_multiplier

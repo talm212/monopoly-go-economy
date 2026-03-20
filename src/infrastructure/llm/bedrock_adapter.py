@@ -56,4 +56,8 @@ class BedrockAdapter:
             contentType="application/json",
         )
         result = json.loads(response["body"].read())
-        return result["content"][0]["text"]
+        content = result.get("content", [])
+        text_blocks = [b for b in content if isinstance(b, dict) and "text" in b]
+        if not text_blocks:
+            raise ValueError("LLM returned no text content")
+        return text_blocks[0]["text"]
