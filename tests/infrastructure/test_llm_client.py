@@ -250,23 +250,15 @@ class TestBedrockAdapter:
 class TestGetLlmClient:
     """Verify get_llm_client() factory dispatches based on LLM_PROVIDER env var."""
 
-    def test_default_returns_anthropic(self) -> None:
-        with (
-            patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}, clear=False),
-            patch.dict("os.environ", {}, clear=False),
-            patch(
-                "src.infrastructure.llm.anthropic_adapter.AsyncAnthropic",
-            ),
-        ):
-            # Remove LLM_PROVIDER if set
-            import os
+    def test_default_returns_bedrock(self) -> None:
+        """Default provider (no LLM_PROVIDER set) returns BedrockAdapter."""
+        import os
 
-            env = os.environ.copy()
-            env.pop("LLM_PROVIDER", None)
-            with patch.dict("os.environ", env, clear=True):
-                os.environ["ANTHROPIC_API_KEY"] = "test-key"
-                client = get_llm_client()
-        assert isinstance(client, AnthropicAdapter)
+        env = os.environ.copy()
+        env.pop("LLM_PROVIDER", None)
+        with patch.dict("os.environ", env, clear=True):
+            client = get_llm_client()
+        assert isinstance(client, BedrockAdapter)
 
     def test_anthropic_provider_returns_anthropic(self) -> None:
         with (

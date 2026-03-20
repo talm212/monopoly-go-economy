@@ -117,7 +117,7 @@ if result is None:
 # ---- API key check --------------------------------------------------------
 
 api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-llm_provider = os.environ.get("LLM_PROVIDER", "anthropic")
+llm_provider = os.environ.get("LLM_PROVIDER", "bedrock")
 
 if llm_provider == "anthropic" and not api_key:
     st.error(

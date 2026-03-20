@@ -46,7 +46,7 @@ def get_llm_client() -> LLMClient:
     Raises:
         ValueError: If LLM_PROVIDER is set to an unknown value.
     """
-    provider = os.environ.get("LLM_PROVIDER", "anthropic")
+    provider = os.environ.get("LLM_PROVIDER", "bedrock")
     logger.info("Creating LLM client for provider=%s", provider)
 
     if provider == "bedrock":
