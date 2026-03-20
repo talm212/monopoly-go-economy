@@ -24,7 +24,7 @@ class BedrockAdapter:
     def __init__(
         self,
         region: str = "us-east-1",
-        model_id: str = "anthropic.claude-sonnet-4-20250514-v1:0",
+        model_id: str = "us.anthropic.claude-sonnet-4-20250514-v1:0",
     ) -> None:
         self._client = boto3.client("bedrock-runtime", region_name=region)
         self._model_id = model_id
