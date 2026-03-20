@@ -637,13 +637,15 @@ if run_clicked and has_players and has_config:
         # Clear stale AI data
         _clear_stale_ai_data()
 
-        # Auto-save to history
+        # Auto-save to history (include KPI metrics for loaded view)
+        _save_summary = result.to_summary_dict()
+        _save_summary.update(result.get_kpi_metrics())
         try:
             store.save_run(
                 {
                     "feature": "coin_flip",
                     "config": config_run.to_dict(),
-                    "result_summary": result.to_summary_dict(),
+                    "result_summary": _save_summary,
                     "distribution": result.get_distribution(),
                 }
             )
@@ -740,20 +742,35 @@ if has_any_result:
                 help_texts=_KPI_HELP,
             )
         elif loaded_summary:
-            total_pts = loaded_summary.get("total_points", 0)
-            total_interactions = loaded_summary.get("total_interactions", 0)
-            threshold = loaded_summary.get("threshold", 100)
-            above = loaded_summary.get("players_above_threshold", 0)
-            render_kpi_cards(
-                {
-                    "Total Interactions": total_interactions,
-                    "Total Points": total_pts,
-                    "Players Above Threshold": above,
-                    "Threshold": threshold,
-                },
-                columns=4,
-                help_texts=_KPI_HELP,
-            )
+            # Show same 4 KPIs as fresh run if available, else fall back
+            _loaded_mean = loaded_summary.get("mean_points_per_player")
+            _loaded_median = loaded_summary.get("median_points_per_player")
+            _loaded_pct = loaded_summary.get("pct_above_threshold")
+
+            if _loaded_mean is not None:
+                # New format: full KPIs saved
+                render_kpi_cards(
+                    {
+                        "Mean Points / Player": _loaded_mean,
+                        "Median Points / Player": _loaded_median or 0,
+                        "Total Points": loaded_summary.get("total_points", 0),
+                        "% Above Threshold": round(float(_loaded_pct or 0) * 100, 2),
+                    },
+                    columns=4,
+                    help_texts=_KPI_HELP,
+                )
+            else:
+                # Old format: only basic summary saved
+                render_kpi_cards(
+                    {
+                        "Total Interactions": loaded_summary.get("total_interactions", 0),
+                        "Total Points": loaded_summary.get("total_points", 0),
+                        "Players Above Threshold": loaded_summary.get("players_above_threshold", 0),
+                        "Threshold": loaded_summary.get("threshold", 100),
+                    },
+                    columns=4,
+                    help_texts=_KPI_HELP,
+                )
 
 
 
@@ -1176,13 +1193,15 @@ if has_any_result:
                         st.session_state["simulation_result"] = new_result
                         st.session_state["config_changed_since_run"] = False
 
-                        # Auto-save
+                        # Auto-save (include KPI metrics for loaded view)
+                        _opt_summary = new_result.to_summary_dict()
+                        _opt_summary.update(new_result.get_kpi_metrics())
                         try:
                             store.save_run(
                                 {
                                     "feature": "coin_flip",
                                     "config": applied_config.to_dict(),
-                                    "result_summary": new_result.to_summary_dict(),
+                                    "result_summary": _opt_summary,
                                     "distribution": new_result.get_distribution(),
                                 }
                             )
