@@ -142,6 +142,31 @@ class TestListRuns:
         assert runs == []
 
 
+class TestUpdateRun:
+    """Tests for update_run()."""
+
+    def test_update_run_modifies_field_on_disk(self, store: LocalSimulationStore) -> None:
+        run_id = store.save_run(_make_run(total_points=100.0))
+        store.update_run(run_id, {"name": "updated_name"})
+
+        retrieved = store.get_run(run_id)
+        assert retrieved["name"] == "updated_name"
+
+    def test_update_run_preserves_other_fields(self, store: LocalSimulationStore) -> None:
+        run_id = store.save_run(_make_run(feature="coin_flip", total_points=42.0))
+        store.update_run(run_id, {"name": "new_name"})
+
+        retrieved = store.get_run(run_id)
+        assert retrieved["feature"] == "coin_flip"
+        assert retrieved["result_summary"]["total_points"] == 42.0
+        assert retrieved["config"]["max_successes"] == 5
+        assert "created_at" in retrieved
+
+    def test_update_run_nonexistent_raises(self, store: LocalSimulationStore) -> None:
+        with pytest.raises(FileNotFoundError, match="No simulation run found"):
+            store.update_run("nonexistent-id", {"name": "nope"})
+
+
 class TestDeleteRun:
     """Tests for delete_run()."""
 

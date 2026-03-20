@@ -1,14 +1,11 @@
-"""Shared utilities for LLM response processing."""
+"""Shared utilities for LLM response processing.
+
+The canonical implementation now lives in ``src.application.llm_utils``.
+This module re-exports for backwards compatibility.
+"""
 
 from __future__ import annotations
 
-import re
+from src.application.llm_utils import strip_markdown_fences
 
-
-def strip_markdown_fences(text: str) -> str:
-    """Remove markdown code fences from LLM responses."""
-    pattern = r"```(?:json)?\s*\n?(.*?)\n?\s*```"
-    match = re.search(pattern, text, re.DOTALL)
-    if match:
-        return match.group(1).strip()
-    return text.strip()
+__all__ = ["strip_markdown_fences"]

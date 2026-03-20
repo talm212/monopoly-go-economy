@@ -13,7 +13,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from src.infrastructure.llm.client import LLMClient
+from src.domain.protocols import LLMClient
 
 logger = logging.getLogger(__name__)
 

@@ -20,8 +20,8 @@ from src.domain.models.optimization import (
     OptimizationStep,
     OptimizationTarget,
 )
-from src.infrastructure.llm.client import LLMClient
-from src.infrastructure.llm.utils import strip_markdown_fences
+from src.application.llm_utils import strip_markdown_fences
+from src.domain.protocols import LLMClient
 
 logger = logging.getLogger(__name__)
 

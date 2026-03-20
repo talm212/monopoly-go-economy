@@ -11,9 +11,9 @@ import json
 import logging
 from typing import Any
 
+from src.application.llm_utils import strip_markdown_fences
 from src.domain.models.insight import Insight, Severity
-from src.infrastructure.llm.client import LLMClient
-from src.infrastructure.llm.utils import strip_markdown_fences
+from src.domain.protocols import LLMClient
 
 logger = logging.getLogger(__name__)
 

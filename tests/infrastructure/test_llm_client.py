@@ -16,7 +16,8 @@ import pytest
 
 from src.infrastructure.llm.anthropic_adapter import AnthropicAdapter
 from src.infrastructure.llm.bedrock_adapter import BedrockAdapter
-from src.infrastructure.llm.client import LLMClient, get_llm_client
+from src.domain.protocols import LLMClient
+from src.infrastructure.llm.client import get_llm_client
 
 # ---------------------------------------------------------------------------
 # Protocol conformance tests
