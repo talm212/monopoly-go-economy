@@ -32,9 +32,12 @@ COPY .streamlit/ ./.streamlit/
 RUN printf '[server]\nheadless = true\nport = 8501\naddress = "0.0.0.0"\nenableCORS = false\nenableXsrfProtection = true\n\n[browser]\ngatherUsageStats = false\n' \
     > /app/.streamlit/server.toml
 
-# Run as non-root user
-RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser && \
-    mkdir -p /app/.simulation_history && chown appuser:appgroup /app/.simulation_history
+# Run as non-root user with writable home directory
+RUN addgroup --system appgroup && \
+    adduser --system --ingroup appgroup --home /app/home appuser && \
+    mkdir -p /app/.simulation_history && \
+    chown -R appuser:appgroup /app/home /app/.simulation_history /app/.streamlit
+ENV HOME="/app/home"
 USER appuser
 
 EXPOSE 8501
