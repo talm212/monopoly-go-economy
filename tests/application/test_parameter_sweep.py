@@ -329,6 +329,58 @@ class TestParameterSweepInvalidParam:
             )
 
 
+class TestParameterSweepOutOfBoundsIndex:
+    """Out-of-bounds index on list parameters raises informative ValueError."""
+
+    def test_out_of_bounds_param_index_99(
+        self,
+        sweep: ParameterSweep,
+        small_players: pl.DataFrame,
+        base_config: dict[str, object],
+    ) -> None:
+        """Sweeping 'probabilities.99' on a 5-depth config raises ValueError."""
+        with pytest.raises(ValueError, match="out of range.*length 5"):
+            sweep.run(
+                players=small_players,
+                base_config=base_config,
+                param_name="probabilities.99",
+                values=[0.5],
+                seed=42,
+            )
+
+    def test_out_of_bounds_point_values_index(
+        self,
+        sweep: ParameterSweep,
+        small_players: pl.DataFrame,
+        base_config: dict[str, object],
+    ) -> None:
+        """Sweeping 'point_values.10' on a 5-depth config raises ValueError."""
+        with pytest.raises(ValueError, match="out of range"):
+            sweep.run(
+                players=small_players,
+                base_config=base_config,
+                param_name="point_values.10",
+                values=[1.0],
+                seed=42,
+            )
+
+    def test_negative_index_raises(
+        self,
+        sweep: ParameterSweep,
+        small_players: pl.DataFrame,
+        base_config: dict[str, object],
+    ) -> None:
+        """Negative index raises ValueError."""
+        with pytest.raises(ValueError, match="out of range"):
+            sweep.run(
+                players=small_players,
+                base_config=base_config,
+                param_name="probabilities.-1",
+                values=[0.5],
+                seed=42,
+            )
+
+
 class TestSweepResultParamName:
     """SweepResult stores param_name correctly."""
 

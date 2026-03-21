@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+import polars as pl
 import pytest
 
 from src.infrastructure.store.local_store import LocalSimulationStore
@@ -179,3 +180,99 @@ class TestDeleteRun:
     def test_delete_nonexistent_run_raises(self, store: LocalSimulationStore) -> None:
         with pytest.raises(FileNotFoundError):
             store.delete_run("nonexistent-id")
+
+
+# ---------------------------------------------------------------------------
+# Parquet roundtrip tests (player_results persistence)
+# ---------------------------------------------------------------------------
+
+
+class TestPlayerResultsParquet:
+    """Tests for save_run with player_results and load_player_results."""
+
+    def test_save_and_load_player_results(
+        self, store: LocalSimulationStore
+    ) -> None:
+        """Save player_results DataFrame, then load and verify schema/rows/values match."""
+        player_results = pl.DataFrame(
+            {
+                "user_id": [1, 2, 3],
+                "rolls_sink": [100, 200, 300],
+                "avg_multiplier": [10, 20, 30],
+                "about_to_churn": [False, True, False],
+                "total_points": [50.5, 120.3, 200.0],
+                "num_interactions": [10, 10, 10],
+            }
+        )
+        run_data = _make_run()
+        run_id = store.save_run(run_data, player_results=player_results)
+
+        loaded = store.load_player_results(run_id)
+
+        assert loaded is not None
+        assert loaded.schema == player_results.schema
+        assert loaded.height == player_results.height
+        assert loaded["user_id"].to_list() == player_results["user_id"].to_list()
+        assert loaded["total_points"].to_list() == pytest.approx(
+            player_results["total_points"].to_list()
+        )
+        assert loaded["about_to_churn"].to_list() == player_results["about_to_churn"].to_list()
+
+    def test_load_player_results_nonexistent(
+        self, store: LocalSimulationStore
+    ) -> None:
+        """load_player_results returns None for an unknown run_id."""
+        result = store.load_player_results("nonexistent-run-id")
+        assert result is None
+
+    def test_save_without_player_results_then_load(
+        self, store: LocalSimulationStore
+    ) -> None:
+        """When saved without player_results, load_player_results returns None."""
+        run_data = _make_run()
+        run_id = store.save_run(run_data)
+
+        result = store.load_player_results(run_id)
+        assert result is None
+
+    def test_save_with_player_results_sets_flag(
+        self, store: LocalSimulationStore
+    ) -> None:
+        """Saving with player_results sets has_player_results=True in JSON."""
+        player_results = pl.DataFrame(
+            {
+                "user_id": [1],
+                "total_points": [42.0],
+            }
+        )
+        run_data = _make_run()
+        run_id = store.save_run(run_data, player_results=player_results)
+
+        retrieved = store.get_run(run_id)
+        assert retrieved.get("has_player_results") is True
+
+    def test_save_without_player_results_no_flag(
+        self, store: LocalSimulationStore
+    ) -> None:
+        """Saving without player_results does not set has_player_results."""
+        run_data = _make_run()
+        run_id = store.save_run(run_data)
+
+        retrieved = store.get_run(run_id)
+        assert "has_player_results" not in retrieved
+
+    def test_delete_run_removes_parquet(
+        self, store: LocalSimulationStore, tmp_path: Path
+    ) -> None:
+        """Deleting a run also removes its Parquet file."""
+        player_results = pl.DataFrame({"user_id": [1], "total_points": [10.0]})
+        run_data = _make_run()
+        run_id = store.save_run(run_data, player_results=player_results)
+
+        # Verify parquet exists
+        assert store.load_player_results(run_id) is not None
+
+        store.delete_run(run_id)
+
+        # Parquet should be gone
+        assert store.load_player_results(run_id) is None

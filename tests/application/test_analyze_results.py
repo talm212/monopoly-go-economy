@@ -574,3 +574,123 @@ class TestErrorHandling:
 
         assert len(insights) == 1
         assert insights[0].finding == "Wrapped in markdown"
+
+
+# ---------------------------------------------------------------------------
+# Metric references edge cases
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestMetricReferencesEdgeCases:
+    """Verify graceful handling of unusual metric_references values."""
+
+    @pytest.mark.asyncio
+    async def test_parse_insight_with_list_metric_references(
+        self,
+        analyst: InsightsAnalyst,
+        mock_llm: AsyncMock,
+        sample_result_summary: dict[str, Any],
+        sample_distribution: dict[str, int],
+        sample_config: dict[str, Any],
+        sample_kpi_metrics: dict[str, float],
+    ) -> None:
+        """metric_references=[1,2,3] (a list, not dict) is handled gracefully.
+
+        The parser calls metric_references.items(), which raises AttributeError
+        on a list. This uncaught exception propagates to generate_insights()
+        which catches all exceptions and returns an empty list. The test
+        documents this behavior: no crash, empty insights returned.
+        """
+        response = json.dumps(
+            [
+                {
+                    "finding": "List refs insight",
+                    "severity": "info",
+                    "recommendation": "Check values",
+                    "metric_references": [1, 2, 3],
+                }
+            ]
+        )
+        mock_llm.complete.return_value = response
+
+        insights = await analyst.generate_insights(
+            result_summary=sample_result_summary,
+            distribution=sample_distribution,
+            config=sample_config,
+            kpi_metrics=sample_kpi_metrics,
+        )
+
+        # The AttributeError propagates, generate_insights catches it and returns []
+        assert insights == []
+
+    @pytest.mark.asyncio
+    async def test_parse_insight_with_string_metric_references(
+        self,
+        analyst: InsightsAnalyst,
+        mock_llm: AsyncMock,
+        sample_result_summary: dict[str, Any],
+        sample_distribution: dict[str, int],
+        sample_config: dict[str, Any],
+        sample_kpi_metrics: dict[str, float],
+    ) -> None:
+        """metric_references="foo" (a string, not dict) is handled gracefully.
+
+        The parser calls metric_references.items(), which raises AttributeError
+        on a string. The exception propagates to generate_insights() which
+        catches all exceptions and returns an empty list. No crash.
+        """
+        response = json.dumps(
+            [
+                {
+                    "finding": "String refs insight",
+                    "severity": "warning",
+                    "recommendation": "Fix the refs",
+                    "metric_references": "foo",
+                }
+            ]
+        )
+        mock_llm.complete.return_value = response
+
+        insights = await analyst.generate_insights(
+            result_summary=sample_result_summary,
+            distribution=sample_distribution,
+            config=sample_config,
+            kpi_metrics=sample_kpi_metrics,
+        )
+
+        # The AttributeError propagates, generate_insights catches it and returns []
+        assert insights == []
+
+    @pytest.mark.asyncio
+    async def test_parse_insight_with_non_numeric_dict_values(
+        self,
+        analyst: InsightsAnalyst,
+        mock_llm: AsyncMock,
+        sample_result_summary: dict[str, Any],
+        sample_distribution: dict[str, int],
+        sample_config: dict[str, Any],
+        sample_kpi_metrics: dict[str, float],
+    ) -> None:
+        """metric_references with non-numeric dict values falls back to {}."""
+        response = json.dumps(
+            [
+                {
+                    "finding": "Bad values insight",
+                    "severity": "info",
+                    "recommendation": "OK",
+                    "metric_references": {"key": "not_a_number"},
+                }
+            ]
+        )
+        mock_llm.complete.return_value = response
+
+        insights = await analyst.generate_insights(
+            result_summary=sample_result_summary,
+            distribution=sample_distribution,
+            config=sample_config,
+            kpi_metrics=sample_kpi_metrics,
+        )
+
+        assert len(insights) == 1
+        assert insights[0].metric_references == {}

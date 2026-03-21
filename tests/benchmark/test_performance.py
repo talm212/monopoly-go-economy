@@ -64,3 +64,63 @@ class TestSimulationPerformance:
 
         assert elapsed < 15.0, f"1M simulation took {elapsed:.2f}s (limit: 15.0s)"
         assert result.total_interactions > 0
+
+
+# ---------------------------------------------------------------------------
+# Loot table benchmark
+# ---------------------------------------------------------------------------
+
+from src.domain.models.loot_table import LootItem, LootTableConfig
+from src.domain.simulators.loot_table import LootTableSimulator
+
+
+def _generate_loot_players(n: int, seed: int = 42) -> pl.DataFrame:
+    """Generate a synthetic player DataFrame with *n* rows for loot table."""
+    return pl.DataFrame({"user_id": list(range(n))})
+
+
+LOOT_CONFIG = LootTableConfig(
+    items=(
+        LootItem(name="gold_coin", weight=50.0, rarity="common", value=10.0),
+        LootItem(name="silver_ring", weight=30.0, rarity="uncommon", value=25.0),
+        LootItem(name="ruby_gem", weight=12.0, rarity="rare", value=100.0),
+        LootItem(name="dragon_shield", weight=5.0, rarity="epic", value=500.0),
+        LootItem(name="excalibur", weight=3.0, rarity="legendary", value=2000.0),
+    ),
+    num_rolls=20,
+    pity_threshold=10,
+)
+
+
+class TestLootTablePerformance:
+    """Benchmark for the loot table simulator."""
+
+    def test_100k_loot_table_completes(self) -> None:
+        """100K players through LootTableSimulator with 5 items and pity enabled.
+
+        Establishes baseline benchmark; no time assertion yet, just verifies
+        the simulation completes and produces valid output.
+        """
+        players = _generate_loot_players(100_000)
+        sim = LootTableSimulator()
+
+        start = time.perf_counter()
+        result = sim.simulate(players, LOOT_CONFIG, seed=42)
+        elapsed = time.perf_counter() - start
+
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(
+            "Loot table 100K benchmark: %.2fs, total_rolls=%d, total_value=%.2f",
+            elapsed,
+            result.total_rolls,
+            result.total_value,
+        )
+
+        # Basic correctness assertions
+        assert result.total_rolls == 100_000 * 20
+        assert result.total_value > 0
+        assert result.player_results.height == 100_000
+        assert "total_value" in result.player_results.columns
+        assert "rare_count" in result.player_results.columns
+        assert "legendary_count" in result.player_results.columns
