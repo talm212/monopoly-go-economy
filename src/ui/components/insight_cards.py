@@ -66,8 +66,8 @@ def render_insight_card(insight: Insight, card_index: int = 0) -> None:
             ]
             st.table(rows)
 
-    # Sweep suggestion button
-    if insight.sweep_suggestion is not None:
+    # Sweep suggestion button (getattr for backward compat with cached insights)
+    if getattr(insight, "sweep_suggestion", None) is not None:
         sweep = insight.sweep_suggestion
         sweep_label = (
             f"Sweep {sweep.parameter}: "
