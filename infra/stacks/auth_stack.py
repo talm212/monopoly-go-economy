@@ -11,7 +11,7 @@ import aws_cdk as cdk
 from aws_cdk import CfnOutput, aws_cognito as cognito
 from constructs import Construct
 
-_PASSWORD_MIN_LENGTH = 8
+_PASSWORD_MIN_LENGTH = 12
 _COGNITO_DOMAIN_PREFIX = "monopoly-economy"
 
 
@@ -44,7 +44,11 @@ class AuthStack(cdk.Stack):
                 min_length=_PASSWORD_MIN_LENGTH,
                 require_lowercase=True,
                 require_digits=True,
+                require_uppercase=True,
+                require_symbols=True,
             ),
+            mfa=cognito.Mfa.OPTIONAL,
+            mfa_second_factor=cognito.MfaSecondFactor(otp=True, sms=False),
             removal_policy=cdk.RemovalPolicy.RETAIN,
         )
 

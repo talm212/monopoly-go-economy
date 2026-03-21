@@ -111,11 +111,26 @@ class ComputeStack(cdk.Stack):
         data_bucket.grant_read_write(task_role)
         history_table.grant_read_write_data(task_role)
 
-        # Grant Bedrock invoke access for AI features (insights, chat, optimizer)
+        # Grant Bedrock invoke access for AI features (insights, chat, optimizer).
+        # Restricted to the specific foundation models / cross-region inference
+        # profiles used by the application.
+        _BEDROCK_MODEL_ARNS = [
+            "arn:aws:bedrock:*:*:inference-profile/us.anthropic.claude-opus-4-6",
+            "arn:aws:bedrock:*:*:inference-profile/us.anthropic.claude-sonnet-4-6",
+            "arn:aws:bedrock:*:*:inference-profile/us.deepseek.r1-v1:0",
+            "arn:aws:bedrock:*:*:inference-profile/us.meta.llama4-maverick-17b-instruct-v1:0",
+            "arn:aws:bedrock:*:*:inference-profile/us.amazon.nova-pro-v1:0",
+            # Foundation model ARNs required for cross-region inference profile invocation
+            "arn:aws:bedrock:*::foundation-model/anthropic.claude-opus-4-6",
+            "arn:aws:bedrock:*::foundation-model/anthropic.claude-sonnet-4-6",
+            "arn:aws:bedrock:*::foundation-model/deepseek.r1-v1:0",
+            "arn:aws:bedrock:*::foundation-model/meta.llama4-maverick-17b-instruct-v1:0",
+            "arn:aws:bedrock:*::foundation-model/amazon.nova-pro-v1:0",
+        ]
         task_role.add_to_principal_policy(
             iam.PolicyStatement(
                 actions=["bedrock:InvokeModel", "bedrock:Converse"],
-                resources=["*"],
+                resources=_BEDROCK_MODEL_ARNS,
             )
         )
 

@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import os
+
 import aws_cdk as cdk
 
 from infra.stacks.auth_stack import AuthStack
@@ -13,11 +15,16 @@ from infra.stacks.pipeline_stack import PipelineStack
 
 app = cdk.App()
 
-_ENV = cdk.Environment(account="585008046382", region="us-east-1")
+_ENV = cdk.Environment(
+    account=os.environ.get("CDK_DEFAULT_ACCOUNT"),
+    region=os.environ.get("CDK_DEFAULT_REGION", "us-east-1"),
+)
 
 network_stack = NetworkStack(app, "MonopolyEconomy-Network", env=_ENV)
 
-data_stack = DataStack(app, "MonopolyEconomy-Data", env=_ENV)
+data_stack = DataStack(
+    app, "MonopolyEconomy-Data", env=_ENV, termination_protection=True
+)
 
 auth_stack = AuthStack(app, "MonopolyEconomy-Auth", env=_ENV)
 
