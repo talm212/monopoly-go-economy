@@ -43,18 +43,82 @@ def _parse_percentage(value: str) -> float:
     return float(match.group(1))
 
 
+# Parameters that belong in the "Simulation Settings" tab rather than "Flip Config"
+_SETTINGS_PARAMS = {"reward_threshold", "churn_boost_multiplier"}
+
+
+def _render_widget(
+    param_name: str,
+    value: Any,
+    key_prefix: str,
+) -> Any:
+    """Render a single config widget and return the edited value."""
+    widget_key = f"{key_prefix}_{param_name}"
+    display_label = param_name.replace("_", " ").title()
+    param_help = _PARAM_HELP.get(param_name)
+
+    # Order matters: check bool before int (bool is a subclass of int in Python)
+    if isinstance(value, bool):
+        return st.checkbox(display_label, value=value, key=widget_key, help=param_help)
+
+    if _is_percentage(value):
+        pct_value = _parse_percentage(value)
+        slider_result: float = st.slider(
+            display_label,
+            min_value=0.0,
+            max_value=100.0,
+            value=pct_value,
+            step=0.5,
+            format="%.1f%%",
+            key=widget_key,
+            help=param_help,
+        )
+        return f"{slider_result}%"
+
+    if isinstance(value, int):
+        return int(
+            st.number_input(
+                display_label,
+                value=value,
+                step=1,
+                key=widget_key,
+                help=param_help,
+            )
+        )
+
+    if isinstance(value, float):
+        return float(
+            st.number_input(
+                display_label,
+                value=value,
+                step=0.01,
+                format="%.4f",
+                key=widget_key,
+                help=param_help,
+            )
+        )
+
+    if isinstance(value, str):
+        return st.text_input(display_label, value=value, key=widget_key, help=param_help)
+
+    # Fallback: render as text and preserve original type
+    logger.warning(
+        "Unsupported config type %s for key '%s'; rendering as text",
+        type(value).__name__,
+        param_name,
+    )
+    return st.text_input(display_label, value=str(value), key=widget_key)
+
+
 def render_config_editor(
     config: dict[str, Any],
     key_prefix: str,
 ) -> dict[str, Any]:
     """Render editable form fields for each entry in the config dict.
 
-    Automatically selects the appropriate Streamlit widget based on value type:
-    - ``bool`` -> checkbox
-    - ``int`` -> integer number input
-    - ``float`` -> float number input
-    - percentage string (e.g. ``"60%"``) -> slider (0-100)
-    - other ``str`` -> text input
+    Splits parameters into two tabs:
+    - **Flip Configuration**: probabilities, point values, max_successes
+    - **Simulation Settings**: reward_threshold, churn_boost_multiplier
 
     Args:
         config: Dictionary of configuration key-value pairs.
@@ -65,62 +129,31 @@ def render_config_editor(
     """
     edited: dict[str, Any] = {}
 
-    for param_name, value in config.items():
-        widget_key = f"{key_prefix}_{param_name}"
-        display_label = param_name.replace("_", " ").title()
-        param_help = _PARAM_HELP.get(param_name)
+    flip_params = {k: v for k, v in config.items() if k not in _SETTINGS_PARAMS}
+    settings_params = {k: v for k, v in config.items() if k in _SETTINGS_PARAMS}
 
-        # Order matters: check bool before int (bool is a subclass of int in Python)
-        if isinstance(value, bool):
-            edited[param_name] = st.checkbox(display_label, value=value, key=widget_key, help=param_help)
+    if settings_params:
+        flip_tab, settings_tab = st.tabs(["Flip Configuration", "Simulation Settings"])
+    else:
+        flip_tab = st.container()
+        settings_tab = None
 
-        elif _is_percentage(value):
-            pct_value = _parse_percentage(value)
-            slider_result: float = st.slider(
-                display_label,
-                min_value=0.0,
-                max_value=100.0,
-                value=pct_value,
-                step=0.5,
-                format="%.1f%%",
-                key=widget_key,
-                help=param_help,
+    with flip_tab:
+        st.caption(
+            "Probabilities and point values for each flip depth. "
+            "These control the core coin-flip chain mechanics."
+        )
+        for param_name, value in flip_params.items():
+            edited[param_name] = _render_widget(param_name, value, key_prefix)
+
+    if settings_tab is not None:
+        with settings_tab:
+            st.caption(
+                "Parameters that affect KPI reporting and player segmentation. "
+                "These don't change the simulation mechanics — they control "
+                "how results are measured and which players get boosted odds."
             )
-            edited[param_name] = f"{slider_result}%"
-
-        elif isinstance(value, int):
-            edited[param_name] = int(
-                st.number_input(
-                    display_label,
-                    value=value,
-                    step=1,
-                    key=widget_key,
-                    help=param_help,
-                )
-            )
-
-        elif isinstance(value, float):
-            edited[param_name] = float(
-                st.number_input(
-                    display_label,
-                    value=value,
-                    step=0.01,
-                    format="%.4f",
-                    key=widget_key,
-                    help=param_help,
-                )
-            )
-
-        elif isinstance(value, str):
-            edited[param_name] = st.text_input(display_label, value=value, key=widget_key, help=param_help)
-
-        else:
-            # Fallback: render as text and preserve original type
-            logger.warning(
-                "Unsupported config type %s for key '%s'; rendering as text",
-                type(value).__name__,
-                param_name,
-            )
-            edited[param_name] = st.text_input(display_label, value=str(value), key=widget_key)
+            for param_name, value in settings_params.items():
+                edited[param_name] = _render_widget(param_name, value, key_prefix)
 
     return edited

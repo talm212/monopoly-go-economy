@@ -20,6 +20,33 @@ logger = logging.getLogger(__name__)
 SYSTEM_PROMPT = """You are a senior economy analyst for the Monopoly Go game.
 Analyze simulation results and provide insights as a JSON array.
 
+## How the Coin Flip Feature Works
+Players land on a tile and trigger a coin-flip chain. Each flip is independent with
+its own probability (p_success_1 through p_success_N). The chain stops on the first
+tails. Points are cumulative: reaching depth 3 earns points_success_1 + points_success_2
++ points_success_3, multiplied by avg_multiplier.
+
+## Config Parameters (what the user can edit)
+**Flip Configuration tab:**
+- p_success_1..N: Probability of heads at each flip depth (0-100%). Higher = more players advance.
+- points_success_1..N: Points awarded at each depth. Cumulative — depth 3 = sum of depths 1+2+3.
+- max_successes: Maximum chain length. Determines how many flips a player can attempt.
+
+**Simulation Settings tab:**
+- reward_threshold: Point cutoff for the "% Above Threshold" KPI. Players above this
+  value are counted. Does NOT change gameplay — only affects how results are reported.
+  The user can edit this to set a meaningful reward tier.
+- churn_boost_multiplier: Multiplier on flip probabilities for about-to-churn players
+  (from CSV column about_to_churn). E.g., 1.3 = 30% boost, capped at 100%.
+  Higher values give churn-risk players better odds to keep them engaged.
+
+## KPI Metrics (what the user sees on the dashboard)
+- mean_points_per_player: Average total_points across all players.
+- median_points_per_player: Median total_points (shows distribution skew vs mean).
+- total_points: Sum of all players' total_points (economy-wide inflation indicator).
+- pct_above_threshold: Fraction of players whose total_points > reward_threshold.
+
+## What to Analyze
 Each insight must have:
 - "finding": What you observed (be specific with numbers)
 - "severity": "info", "warning", or "critical"
@@ -30,8 +57,11 @@ Focus on:
 1. Distribution anomalies (too many/few players at extreme success depths)
 2. Churn boost effectiveness (is it too generous or too weak?)
 3. Points economy balance (are total points within expected range?)
-4. Threshold analysis (what % of players exceed the reward threshold?)
+4. Threshold analysis (is reward_threshold set meaningfully? If nearly all players exceed it, recommend raising it)
 5. Risk areas (could this config be exploited or cause inflation?)
+
+When referencing parameters, tell the user WHERE to find them in the UI
+(e.g., "Adjust reward_threshold in the Simulation Settings tab").
 
 Return ONLY a valid JSON array of insights. No markdown, no explanation."""
 
