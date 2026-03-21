@@ -28,8 +28,10 @@ compute_stack = ComputeStack(
     ecr_repo=network_stack.ecr_repo,
     data_bucket=data_stack.data_bucket,
     history_table=data_stack.history_table,
-    user_pool=auth_stack.user_pool,
-    user_pool_domain=auth_stack.user_pool_domain,
+    # Cognito auth requires HTTPS (SSL cert + custom domain).
+    # Uncomment when a domain and ACM certificate are available:
+    # user_pool=auth_stack.user_pool,
+    # user_pool_domain=auth_stack.user_pool_domain,
     env=_ENV,
 )
 
