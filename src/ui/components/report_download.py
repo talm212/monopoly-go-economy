@@ -1,7 +1,7 @@
 """Download Report button component for the simulation dashboard.
 
-Generates a PDF report from simulation results and provides a Streamlit
-download button for the user.
+Generates a PDF report on-demand when the user clicks the button.
+Data is prepared eagerly but the PDF is only written when requested.
 """
 
 from __future__ import annotations
@@ -27,36 +27,43 @@ def render_report_download(
     insights: list[dict[str, Any]] | None = None,
     feature_name: str = "coin_flip",
 ) -> None:
-    """Render a Download Report button that generates and downloads a PDF.
+    """Render a Download Report button that generates a PDF on click.
 
-    Args:
-        config: Simulation configuration key-value pairs.
-        kpi_metrics: KPI metric name to numeric value mapping.
-        distribution: Success depth to interaction count mapping.
-        segments: Optional churn vs non-churn segment metrics.
-        insights: Optional AI-generated insights with severity.
-        feature_name: Name of the simulated feature.
+    The PDF is only generated when the user clicks the button, not on
+    every page render. Data is prepared eagerly but file writing is lazy.
     """
-    try:
-        pdf_bytes = _generator.generate(
-            config=config,
-            kpi_metrics=kpi_metrics,
-            distribution=distribution,
-            segments=segments,
-            insights=insights,
-            feature_name=feature_name,
-        )
-    except Exception:
-        logger.exception("Failed to generate PDF report")
-        st.error("Failed to generate PDF report.")
-        return
-
     display_name = feature_name.replace("_", " ").title()
-    st.download_button(
-        label=f"Download {display_name} Report (PDF)",
-        data=pdf_bytes,
-        file_name=f"{feature_name}_simulation_report.pdf",
-        mime="application/pdf",
-        key="download_report_pdf",
-        help="Download a PDF report with config, KPIs, distribution, churn segments, and AI insights (if generated). Ready to share with stakeholders.",
-    )
+
+    if st.button(
+        f"Generate {display_name} Report (PDF)",
+        key="generate_report_pdf",
+        use_container_width=True,
+        help="Generate a PDF report with config, KPIs, distribution, churn segments, and AI insights (if generated).",
+    ):
+        try:
+            with st.spinner("Generating PDF report..."):
+                pdf_bytes = _generator.generate(
+                    config=config,
+                    kpi_metrics=kpi_metrics,
+                    distribution=distribution,
+                    segments=segments,
+                    insights=insights,
+                    feature_name=feature_name,
+                )
+            st.session_state["_report_pdf_bytes"] = pdf_bytes
+        except Exception:
+            logger.exception("Failed to generate PDF report")
+            st.error("Failed to generate PDF report.")
+            return
+
+    # Show download button only after PDF is generated
+    pdf_bytes: bytes | None = st.session_state.get("_report_pdf_bytes")
+    if pdf_bytes is not None:
+        st.download_button(
+            label=f"Download {display_name} Report (PDF)",
+            data=pdf_bytes,
+            file_name=f"{feature_name}_simulation_report.pdf",
+            mime="application/pdf",
+            key="download_report_pdf",
+            help="Download the generated PDF report.",
+        )
