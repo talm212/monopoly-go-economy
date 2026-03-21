@@ -104,11 +104,21 @@ def _render_charts_tab(
             y_label="Interaction Count",
         )
         st.caption(
-            "X-axis: success depth = number of consecutive successful flips before first tails. "
-            "Y-axis: count of interactions that ended at that depth. "
-            "Depth 0 = tails on first flip (no points). "
-            "Each flip i has probability p_success_i from config."
+            "**success_0_count ... success_N_count** from the spec. "
+            "Each bar = interactions ending at that success depth. "
+            "Depth 0 = tails on first flip (no points)."
         )
+        # Show the raw success counts as a table (spec output)
+        if display_dist:
+            dist_rows = [
+                {"Success Depth": k, "Count": v}
+                for k, v in sorted(display_dist.items(), key=lambda x: int(x[0]))
+            ]
+            st.dataframe(
+                pl.DataFrame(dist_rows),
+                use_container_width=True,
+                hide_index=True,
+            )
     with chart_right:
         result_df = display.get_dataframe()
         if not result_df.is_empty() and "total_points" in result_df.columns:

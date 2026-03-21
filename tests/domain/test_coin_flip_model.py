@@ -270,28 +270,25 @@ class TestCoinFlipResultsDisplay:
             threshold=100.0,
         )
 
-    def test_get_kpi_cards_returns_four_kpis(
+    def test_get_kpi_cards_returns_spec_kpis(
         self, result_with_churn: CoinFlipResult,
     ) -> None:
         cards = result_with_churn.get_kpi_cards()
-        assert len(cards) == 4
+        assert len(cards) == 3
         expected_labels = {
-            "Mean Points / Player",
-            "Median Points / Player",
+            "Total Interactions",
             "Total Points",
-            "% Above Threshold",
+            "Players Above Threshold",
         }
         assert set(cards.keys()) == expected_labels
 
-    def test_get_kpi_cards_values_match_get_kpi_metrics(
+    def test_get_kpi_cards_values_match_result(
         self, result_with_churn: CoinFlipResult,
     ) -> None:
         cards = result_with_churn.get_kpi_cards()
-        raw = result_with_churn.get_kpi_metrics()
-        assert cards["Mean Points / Player"][0] == raw["mean_points_per_player"]
-        assert cards["Median Points / Player"][0] == raw["median_points_per_player"]
-        assert cards["Total Points"][0] == raw["total_points"]
-        assert cards["% Above Threshold"][0] == round(raw["pct_above_threshold"] * 100, 2)
+        assert cards["Total Interactions"][0] == result_with_churn.total_interactions
+        assert cards["Total Points"][0] == result_with_churn.total_points
+        assert cards["Players Above Threshold"][0] == result_with_churn.players_above_threshold
 
     def test_get_kpi_cards_includes_help_text(
         self, result_with_churn: CoinFlipResult,
@@ -356,8 +353,9 @@ class TestCoinFlipResultsDisplay:
             threshold=100.0,
         )
         cards = result.get_kpi_cards()
-        assert cards["Mean Points / Player"][0] == 0.0
-        assert cards["% Above Threshold"][0] == 0.0
+        assert cards["Total Interactions"][0] == 0
+        assert cards["Total Points"][0] == 0.0
+        assert cards["Players Above Threshold"][0] == 0
 
     def test_get_segments_with_empty_churn_segment(self) -> None:
         """All players are non-churn; churn segment should have zero counts."""

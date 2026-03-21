@@ -60,27 +60,8 @@ _config_obj_to_display = config_obj_to_display
 # Constants
 # ---------------------------------------------------------------------------
 
-# KPI help texts: primary source is now in the domain model; extra keys for
-# the loaded-summary fallback path are added here.
-_KPI_HELP: dict[str, str] = {
-    **_COIN_FLIP_KPI_HELP,
-    "Total Interactions": (
-        "**Calculation:** sum(rolls_sink // avg_multiplier) for each player\n\n"
-        "**Parameters:**\n"
-        "- rolls_sink: total rolls available to the player (from CSV)\n"
-        "- avg_multiplier: average bet multiplier (from CSV)\n"
-        "- Each interaction triggers one coin-flip chain"
-    ),
-    "Players Above Threshold": (
-        "**Calculation:** count of players where total_points > reward_threshold\n\n"
-        "- reward_threshold is set in config (default 100)"
-    ),
-    "Threshold": (
-        "The reward_threshold config parameter.\n\n"
-        "Players with total_points above this value are counted in "
-        "'Players Above Threshold' and '% Above Threshold'."
-    ),
-}
+# KPI help texts: canonical source is in the domain model.
+_KPI_HELP: dict[str, str] = {**_COIN_FLIP_KPI_HELP}
 
 # ---------------------------------------------------------------------------
 # Cached resource factories
@@ -169,20 +150,7 @@ def _config_changed_since_last_run() -> bool:
 
 
 def _build_setup_summary() -> str:
-    """Build a one-line summary for the collapsed setup expander label."""
-    parts: list[str] = []
-
-    player_data: pl.DataFrame | None = st.session_state.get("player_data")
-    if player_data is not None:
-        parts.append(f"{player_data.height:,} players")
-
-    config: CoinFlipConfig | None = st.session_state.get("config")
-    if config is not None:
-        parts.append(f"{config.max_successes} depths")
-        parts.append(f"threshold {config.reward_threshold:,.0f}")
-
-    if parts:
-        return "Setup -- " + ", ".join(parts)
+    """Build the setup section label."""
     return "Setup"
 
 
@@ -531,39 +499,20 @@ if has_any_result:
             kpi_cards = sim_result.get_kpi_cards()
             render_kpi_cards(
                 {label: value for label, (value, _) in kpi_cards.items()},
-                columns=4,
+                columns=3,
                 help_texts={label: help_text for label, (_, help_text) in kpi_cards.items()},
             )
         elif loaded_summary:
-            # Show same 4 KPIs as fresh run if available, else fall back
-            _loaded_mean = loaded_summary.get("mean_points_per_player")
-            _loaded_median = loaded_summary.get("median_points_per_player")
-            _loaded_pct = loaded_summary.get("pct_above_threshold")
-
-            if _loaded_mean is not None:
-                # New format: full KPIs saved
-                render_kpi_cards(
-                    {
-                        "Mean Points / Player": _loaded_mean,
-                        "Median Points / Player": _loaded_median or 0,
-                        "Total Points": loaded_summary.get("total_points", 0),
-                        "% Above Threshold": round(float(_loaded_pct or 0) * 100, 2),
-                    },
-                    columns=4,
-                    help_texts=_KPI_HELP,
-                )
-            else:
-                # Old format: only basic summary saved
-                render_kpi_cards(
-                    {
-                        "Total Interactions": loaded_summary.get("total_interactions", 0),
-                        "Total Points": loaded_summary.get("total_points", 0),
-                        "Players Above Threshold": loaded_summary.get("players_above_threshold", 0),
-                        "Threshold": loaded_summary.get("threshold", 100),
-                    },
-                    columns=4,
-                    help_texts=_KPI_HELP,
-                )
+            # Show spec-required KPIs matching fresh run cards
+            render_kpi_cards(
+                {
+                    "Total Interactions": loaded_summary.get("total_interactions", 0),
+                    "Total Points": loaded_summary.get("total_points", 0),
+                    "Players Above Threshold": loaded_summary.get("players_above_threshold", 0),
+                },
+                columns=3,
+                help_texts=_KPI_HELP,
+            )
 
 
 # ===========================================================================

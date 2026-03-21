@@ -22,32 +22,21 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _KPI_HELP: dict[str, str] = {
-    "Mean Points / Player": (
-        "**Calculation:** sum(total_points) / count(players)\n\n"
-        "**Parameters:**\n"
-        "- total_points per player = sum of points from all their coin-flip interactions\n"
-        "- Per interaction: flip up to max_successes times, stop at first tails\n"
-        "- Points = cumulative sum of points_success_1..points_success_depth\n"
-        "- Final points multiplied by the player's avg_multiplier"
-    ),
-    "Median Points / Player": (
-        "**Calculation:** middle value when all players' total_points are sorted\n\n"
-        "Less sensitive to outliers than the mean.\n"
-        "If mean >> median, a few players earn disproportionately more."
+    "Total Interactions": (
+        "**total_roll_interactions** -- total interactions simulated.\n\n"
+        "**Calculation:** sum(floor(rolls_sink / avg_multiplier)) for each player.\n"
+        "Each interaction triggers one coin-flip chain."
     ),
     "Total Points": (
-        "**Calculation:** sum(total_points) across all players\n\n"
-        "**Parameters:**\n"
-        "- total_points per player = sum over interactions of "
-        "(cumulative points at success depth * avg_multiplier)\n"
-        "- Reflects the total economy output of the simulation"
+        "**total_points** -- total points awarded across all players.\n\n"
+        "**Calculation:** sum over all players of "
+        "(sum over interactions of cumulative points at success depth * avg_multiplier)."
     ),
-    "% Above Threshold": (
-        "**Calculation:** count(players where total_points > threshold) "
-        "/ count(players) * 100\n\n"
-        "**Parameters:**\n"
-        "- reward_threshold: set in config (default 100)\n"
-        "- Shows what fraction of players exceed the reward cutoff"
+    "Players Above Threshold": (
+        "**players_above_threshold** -- players whose total points exceed "
+        "the reward threshold.\n\n"
+        "**Calculation:** count(players where total_points > reward_threshold).\n"
+        "Adjust reward_threshold in the Simulation Settings tab."
     ),
 }
 
@@ -283,26 +272,21 @@ class CoinFlipResult:
     def get_kpi_cards(self) -> dict[str, tuple[float | int, str]]:
         """Return KPI card data as ``{label: (value, help_text)}``.
 
-        Produces the same four KPIs that were previously assembled in
-        ``app.py``, with the help texts co-located with the data.
+        Matches the required output from the Tech Test spec:
+        total_roll_interactions, total_points, players_above_threshold.
         """
-        raw = self.get_kpi_metrics()
         return {
-            "Mean Points / Player": (
-                raw["mean_points_per_player"],
-                _KPI_HELP["Mean Points / Player"],
-            ),
-            "Median Points / Player": (
-                raw["median_points_per_player"],
-                _KPI_HELP["Median Points / Player"],
+            "Total Interactions": (
+                self.total_interactions,
+                _KPI_HELP["Total Interactions"],
             ),
             "Total Points": (
-                raw["total_points"],
+                self.total_points,
                 _KPI_HELP["Total Points"],
             ),
-            "% Above Threshold": (
-                round(raw["pct_above_threshold"] * 100, 2),
-                _KPI_HELP["% Above Threshold"],
+            "Players Above Threshold": (
+                self.players_above_threshold,
+                _KPI_HELP["Players Above Threshold"],
             ),
         }
 

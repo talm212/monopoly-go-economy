@@ -283,9 +283,9 @@ class TestResultsDisplay:
         assert not at.exception, (
             f"App raised exception with loaded summary: {at.exception}"
         )
-        # Loaded summary also renders 4 KPI metrics
-        assert len(at.metric) >= 4, (
-            f"Expected at least 4 KPI metrics from loaded summary, got {len(at.metric)}"
+        # Loaded summary renders 3 spec-required KPI metrics
+        assert len(at.metric) >= 3, (
+            f"Expected at least 3 KPI metrics from loaded summary, got {len(at.metric)}"
         )
 
     def test_results_section_renders_with_simulation(
