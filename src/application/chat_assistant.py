@@ -112,15 +112,9 @@ class ChatAssistant:
         try:
             response = await self._llm.complete(prompt, system=SYSTEM_PROMPT)
             return response
-        except Exception as exc:
-            logger.exception("Chat assistant failed to answer question")
-            return (
-                f"Failed to get a response from the LLM.\n\n"
-                f"**Error:** `{type(exc).__name__}: {exc}`\n\n"
-                f"Check that your LLM provider is configured correctly "
-                f"(LLM_PROVIDER env var, AWS credentials for Bedrock, "
-                f"or ANTHROPIC_API_KEY for Anthropic)."
-            )
+        except Exception:
+            logger.exception("Chat assistant LLM call failed")
+            return "The AI assistant encountered an error. Please try again or check your LLM configuration."
 
     def _build_context(
         self,

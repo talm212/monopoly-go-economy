@@ -45,7 +45,7 @@ def render_ai_chat_panel(
             st.markdown(msg["content"])
 
     # Input box for new questions
-    question = st.chat_input("Ask a question about the simulation results...")
+    question = st.chat_input("Ask a question about the simulation results...", max_chars=2000)
 
     if question:
         # Show user message immediately

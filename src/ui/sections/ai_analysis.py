@@ -255,13 +255,12 @@ def _render_insights_tab(
                         "This may indicate an issue with the LLM response. "
                         "Please try again."
                     )
-            except ValueError as exc:
-                st.error(f"Configuration error: {exc}")
+            except ValueError:
+                st.error("LLM configuration error. Please check your LLM provider settings.")
                 logger.exception("LLM configuration error")
-            except Exception as exc:
+            except Exception:
                 st.error(
-                    f"Failed to generate insights: `{type(exc).__name__}: {exc}`\n\n"
-                    f"Check your LLM provider config (LLM_PROVIDER, AWS credentials, or ANTHROPIC_API_KEY)."
+                    "Failed to generate insights. Please check your LLM provider configuration and try again."
                 )
                 logger.exception("Unexpected error generating insights")
 
@@ -298,8 +297,9 @@ def _render_chat_tab(
             config=config_dict,
             kpi_metrics=kpi_metrics,
         )
-    except ValueError as exc:
-        st.error(f"LLM configuration error: {exc}")
+    except ValueError:
+        st.error("LLM configuration error. Please check your LLM provider settings.")
+        logger.exception("LLM configuration error in chat tab")
     except Exception:
         st.error("Failed to initialize chat assistant. Check your LLM configuration.")
         logger.exception("Chat assistant initialization failed")
@@ -513,6 +513,6 @@ def _render_optimizer_tab(
                 _clear_stale_ai_data()
                 st.rerun()
 
-            except (KeyError, ValueError) as exc:
-                st.error(f"Failed to apply config: {exc}")
+            except (KeyError, ValueError):
+                st.error("Failed to apply the optimized configuration. Please try again.")
                 logger.exception("Failed to apply optimizer config")
