@@ -63,6 +63,9 @@ class CoinFlipConfig:
     churn_boost_multiplier: float = 1.3
     reward_threshold: float = 100.0
 
+    def __post_init__(self) -> None:
+        self.validate()
+
     def validate(self) -> None:
         """Raise ValueError if the configuration is invalid."""
         if self.max_successes <= 0:
@@ -338,20 +341,21 @@ class CoinFlipResult:
         kpi_metrics = self.get_kpi_metrics()
         result_summary.update(kpi_metrics)
 
-        # Build churn segment breakdown if column exists
+        # Reuse get_segments() to avoid duplicating churn computation
+        segments = self.get_segments()
         segment_data: dict[str, Any] | None = None
-        if "about_to_churn" in self.player_results.columns:
-            churn_df = self.player_results.filter(pl.col("about_to_churn"))
-            non_churn_df = self.player_results.filter(~pl.col("about_to_churn"))
+        if segments is not None:
+            churn = segments.get("churn", {})
+            non_churn = segments.get("non-churn", {})
             segment_data = {
-                "churn_player_count": churn_df.height,
-                "churn_mean_points": float(churn_df["total_points"].mean() or 0),
-                "churn_median_points": float(churn_df["total_points"].median() or 0),
-                "churn_total_points": float(churn_df["total_points"].sum() or 0),
-                "non_churn_player_count": non_churn_df.height,
-                "non_churn_mean_points": float(non_churn_df["total_points"].mean() or 0),
-                "non_churn_median_points": float(non_churn_df["total_points"].median() or 0),
-                "non_churn_total_points": float(non_churn_df["total_points"].sum() or 0),
+                "churn_player_count": int(churn.get("Player Count", 0)),
+                "churn_mean_points": churn.get("Avg Points / Player", 0.0),
+                "churn_median_points": churn.get("Median Points / Player", 0.0),
+                "churn_total_points": churn.get("Total Points", 0.0),
+                "non_churn_player_count": int(non_churn.get("Player Count", 0)),
+                "non_churn_mean_points": non_churn.get("Avg Points / Player", 0.0),
+                "non_churn_median_points": non_churn.get("Median Points / Player", 0.0),
+                "non_churn_total_points": non_churn.get("Total Points", 0.0),
             }
             result_summary["churn_segment"] = segment_data
 

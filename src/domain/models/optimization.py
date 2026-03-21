@@ -36,7 +36,7 @@ class OptimizationTarget:
     tolerance: float = 0.05
 
 
-@dataclass
+@dataclass(frozen=True)
 class OptimizationStep:
     """Record of a single optimizer iteration.
 

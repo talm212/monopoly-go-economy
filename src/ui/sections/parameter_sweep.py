@@ -22,10 +22,6 @@ logger = logging.getLogger(__name__)
 # Sweepable parameter definitions
 # ---------------------------------------------------------------------------
 
-# Maps display name -> (param_name for sweep, min, max, default_start, default_end)
-_SWEEPABLE_PARAMS: dict[str, dict[str, Any]] = {}
-
-
 def _build_sweepable_params(max_successes: int) -> dict[str, dict[str, Any]]:
     """Build sweepable parameter metadata based on config depth."""
     params: dict[str, dict[str, Any]] = {}

@@ -17,7 +17,6 @@ import polars as pl
 
 from src.domain.models.loot_table import (
     RARE_PLUS_RARITIES,
-    LootItem,
     LootTableConfig,
     LootTableResult,
 )
@@ -169,7 +168,7 @@ class LootTableSimulator:
 
         # Build player results DataFrame
         player_results = players.with_columns(
-            pl.Series("items_received", items_received_strs, dtype=pl.Utf8),
+            pl.Series("items_received", items_received_strs, dtype=pl.String),
             pl.Series("total_value", player_total_values, dtype=pl.Float64),
             pl.Series("rare_count", player_rare_counts.astype(np.int64), dtype=pl.Int64),
             pl.Series("legendary_count", player_legendary_counts.astype(np.int64), dtype=pl.Int64),

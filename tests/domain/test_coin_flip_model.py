@@ -27,58 +27,52 @@ class TestValidateNanInf:
     """Verify validate() rejects non-finite values (NaN, inf)."""
 
     def test_nan_probability_raises(self) -> None:
-        config = CoinFlipConfig(
-            max_successes=2,
-            probabilities=(0.5, float("nan")),
-            point_values=(1.0, 2.0),
-        )
         with pytest.raises(ValueError, match="probability at index 1"):
-            config.validate()
+            CoinFlipConfig(
+                max_successes=2,
+                probabilities=(0.5, float("nan")),
+                point_values=(1.0, 2.0),
+            )
 
     def test_nan_first_probability_raises(self) -> None:
-        config = CoinFlipConfig(
-            max_successes=1,
-            probabilities=(float("nan"),),
-            point_values=(1.0,),
-        )
         with pytest.raises(ValueError, match="probability at index 0"):
-            config.validate()
+            CoinFlipConfig(
+                max_successes=1,
+                probabilities=(float("nan"),),
+                point_values=(1.0,),
+            )
 
     def test_inf_point_value_raises(self) -> None:
-        config = CoinFlipConfig(
-            max_successes=2,
-            probabilities=(0.5, 0.5),
-            point_values=(1.0, float("inf")),
-        )
         with pytest.raises(ValueError, match="point_values at index 1"):
-            config.validate()
+            CoinFlipConfig(
+                max_successes=2,
+                probabilities=(0.5, 0.5),
+                point_values=(1.0, float("inf")),
+            )
 
     def test_negative_inf_point_value_raises(self) -> None:
-        config = CoinFlipConfig(
-            max_successes=1,
-            probabilities=(0.5,),
-            point_values=(float("-inf"),),
-        )
         with pytest.raises(ValueError, match="point_values at index 0"):
-            config.validate()
+            CoinFlipConfig(
+                max_successes=1,
+                probabilities=(0.5,),
+                point_values=(float("-inf"),),
+            )
 
     def test_inf_probability_raises(self) -> None:
-        config = CoinFlipConfig(
-            max_successes=1,
-            probabilities=(float("inf"),),
-            point_values=(1.0,),
-        )
         with pytest.raises(ValueError, match="probability at index 0"):
-            config.validate()
+            CoinFlipConfig(
+                max_successes=1,
+                probabilities=(float("inf"),),
+                point_values=(1.0,),
+            )
 
     def test_nan_point_value_raises(self) -> None:
-        config = CoinFlipConfig(
-            max_successes=1,
-            probabilities=(0.5,),
-            point_values=(float("nan"),),
-        )
         with pytest.raises(ValueError, match="point_values at index 0"):
-            config.validate()
+            CoinFlipConfig(
+                max_successes=1,
+                probabilities=(0.5,),
+                point_values=(float("nan"),),
+            )
 
 
 # ---------------------------------------------------------------------------

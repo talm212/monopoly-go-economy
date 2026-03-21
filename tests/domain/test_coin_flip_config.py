@@ -29,58 +29,52 @@ class TestCoinFlipConfigValidation:
         config.validate()  # should not raise
 
     def test_mismatched_probabilities_length_raises(self) -> None:
-        config = CoinFlipConfig(
-            max_successes=5,
-            probabilities=(0.6, 0.5, 0.5),  # only 3 instead of 5
-            point_values=(1.0, 2.0, 4.0, 8.0, 16.0),
-        )
         with pytest.raises(ValueError, match="probabilities"):
-            config.validate()
+            CoinFlipConfig(
+                max_successes=5,
+                probabilities=(0.6, 0.5, 0.5),  # only 3 instead of 5
+                point_values=(1.0, 2.0, 4.0, 8.0, 16.0),
+            )
 
     def test_mismatched_point_values_length_raises(self) -> None:
-        config = CoinFlipConfig(
-            max_successes=5,
-            probabilities=(0.6, 0.5, 0.5, 0.5, 0.5),
-            point_values=(1.0, 2.0),  # only 2 instead of 5
-        )
         with pytest.raises(ValueError, match="point_values"):
-            config.validate()
+            CoinFlipConfig(
+                max_successes=5,
+                probabilities=(0.6, 0.5, 0.5, 0.5, 0.5),
+                point_values=(1.0, 2.0),  # only 2 instead of 5
+            )
 
     def test_probability_below_zero_raises(self) -> None:
-        config = CoinFlipConfig(
-            max_successes=2,
-            probabilities=(-0.1, 0.5),
-            point_values=(1.0, 2.0),
-        )
         with pytest.raises(ValueError, match="probability"):
-            config.validate()
+            CoinFlipConfig(
+                max_successes=2,
+                probabilities=(-0.1, 0.5),
+                point_values=(1.0, 2.0),
+            )
 
     def test_probability_above_one_raises(self) -> None:
-        config = CoinFlipConfig(
-            max_successes=2,
-            probabilities=(0.5, 1.1),
-            point_values=(1.0, 2.0),
-        )
         with pytest.raises(ValueError, match="probability"):
-            config.validate()
+            CoinFlipConfig(
+                max_successes=2,
+                probabilities=(0.5, 1.1),
+                point_values=(1.0, 2.0),
+            )
 
     def test_max_successes_zero_raises(self) -> None:
-        config = CoinFlipConfig(
-            max_successes=0,
-            probabilities=(),
-            point_values=(),
-        )
         with pytest.raises(ValueError, match="max_successes"):
-            config.validate()
+            CoinFlipConfig(
+                max_successes=0,
+                probabilities=(),
+                point_values=(),
+            )
 
     def test_negative_point_value_raises(self) -> None:
-        config = CoinFlipConfig(
-            max_successes=2,
-            probabilities=(0.5, 0.5),
-            point_values=(1.0, -2.0),
-        )
         with pytest.raises(ValueError, match="point_values"):
-            config.validate()
+            CoinFlipConfig(
+                max_successes=2,
+                probabilities=(0.5, 0.5),
+                point_values=(1.0, -2.0),
+            )
 
     def test_boundary_probability_zero_is_valid(self) -> None:
         config = CoinFlipConfig(

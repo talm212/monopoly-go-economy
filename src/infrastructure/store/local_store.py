@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -22,7 +23,9 @@ logger = logging.getLogger(__name__)
 class LocalSimulationStore:
     """Stores simulation runs as JSON files in a local directory."""
 
-    def __init__(self, store_dir: str = ".simulation_history") -> None:
+    def __init__(self, store_dir: str | None = None) -> None:
+        if store_dir is None:
+            store_dir = os.environ.get("SIMULATION_STORE_DIR", ".simulation_history")
         self._store_dir = Path(store_dir)
         self._store_dir.mkdir(parents=True, exist_ok=True)
 

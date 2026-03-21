@@ -264,6 +264,17 @@ class ResultsDisplay(Protocol):
         """Return the full result DataFrame for download / display."""
         ...
 
+    def to_analysis_context(self, config: SimulatorConfig) -> FeatureAnalysisContext:
+        """Build a FeatureAnalysisContext for AI analysis.
+
+        Args:
+            config: The simulator configuration used for this run.
+
+        Returns:
+            A fully populated FeatureAnalysisContext.
+        """
+        ...
+
 
 @runtime_checkable
 class LLMClient(Protocol):

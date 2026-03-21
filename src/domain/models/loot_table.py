@@ -7,7 +7,6 @@ outcomes and provides summary accessors following the ResultsDisplay protocol.
 
 from __future__ import annotations
 
-import json
 import logging
 import math
 from dataclasses import dataclass
@@ -144,6 +143,9 @@ class LootTableConfig:
     pity_threshold: int = 10
     guaranteed_items: tuple[str, ...] = ()
 
+    def __post_init__(self) -> None:
+        self.validate()
+
     def validate(self) -> None:
         """Raise ValueError if the configuration is invalid."""
         if not self.items:
@@ -275,7 +277,6 @@ class LootTableResult:
         median_val = value_col.median()
 
         # Count players who got at least one legendary
-        legendary_col = self.player_results["legendary_count"]
         players_with_legendary = int(
             self.player_results.filter(pl.col("legendary_count") > 0).height
         )

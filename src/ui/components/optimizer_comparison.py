@@ -10,13 +10,15 @@ build_distribution_overlay_data) are fully testable without Streamlit.
 from __future__ import annotations
 
 import logging
-import math
 from dataclasses import dataclass
 from typing import Any
 
 import altair as alt
 import polars as pl
 import streamlit as st
+
+from src.ui.formatting import fmt as _fmt
+from src.ui.formatting import fmt_delta as _fmt_delta
 
 logger = logging.getLogger(__name__)
 
@@ -191,24 +193,6 @@ def build_distribution_overlay_data(
 # ---------------------------------------------------------------------------
 
 
-def _fmt(value: float) -> str:
-    """Format a number — drop .00 for whole numbers."""
-    if not math.isfinite(value):
-        return f"{value}"
-    if value == int(value):
-        return f"{int(value):,}"
-    return f"{value:,.2f}"
-
-
-def _fmt_delta(value: float) -> str | None:
-    """Format a delta value — None if zero."""
-    if value == 0:
-        return None
-    if value == int(value):
-        return f"{int(value):+,}"
-    return f"{value:+,.2f}"
-
-
 def _fmt_value(value: Any) -> str:
     """Format a config value for display."""
     if isinstance(value, list):
@@ -376,6 +360,9 @@ def render_optimizer_comparison(
             type="primary",
             use_container_width=True,
             key="opt_apply_comparison",
-            help="Replaces your current config with the optimized values. You can then re-run the simulation to see the full results.",
+            help=(
+                "Replaces your current config with the optimized values. "
+                "You can then re-run the simulation to see the full results."
+            ),
         )
     )

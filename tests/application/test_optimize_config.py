@@ -145,16 +145,16 @@ class TestOptimizationStep:
         assert step.result_metric == 350.0
         assert step.distance_to_target == 150.0
 
-    def test_step_is_mutable(self) -> None:
-        """OptimizationStep is a regular (mutable) dataclass."""
+    def test_step_is_frozen(self) -> None:
+        """OptimizationStep is a frozen (immutable) dataclass."""
         step = OptimizationStep(
             iteration=1,
             config={},
             result_metric=0.0,
             distance_to_target=100.0,
         )
-        step.result_metric = 42.0
-        assert step.result_metric == 42.0
+        with pytest.raises(AttributeError):
+            step.result_metric = 42.0  # type: ignore[misc]
 
 
 # ---------------------------------------------------------------------------
