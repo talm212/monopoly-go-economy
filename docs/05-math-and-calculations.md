@@ -4,6 +4,30 @@ Complete reference for every formula, algorithm, and calculation in the simulati
 
 ---
 
+## Vocabulary
+
+| Term | Definition |
+|------|-----------|
+| **Interaction** | A single coin-flip sequence triggered when a player lands on a marked tile. One player can have many interactions per simulation. |
+| **Flip** | One coin toss within an interaction. Result is heads (success) or tails (failure). |
+| **Depth** | How many consecutive heads a player achieves in one interaction (0 = first flip was tails, 5 = all 5 heads). |
+| **Success Chain** | The sequence of consecutive heads before the first tails. The chain stops immediately on the first failure. |
+| **`rolls_sink`** | Total rolls a player spent landing on coin-flip tiles. Higher value = more interactions. |
+| **`avg_multiplier`** | Player's average roll multiplier. Determines both how many interactions they get (`rolls_sink / avg_multiplier`) and the final point scaling (points × `avg_multiplier`). |
+| **`about_to_churn`** | Boolean flag from a churn-prediction ML model. `true` = player is at risk of leaving the game. |
+| **Churn Boost** | A 1.3x multiplier applied to flip probabilities for churn-risk players, capped at 100%. Makes the game more generous to retain them. |
+| **`max_successes`** | Maximum number of flips allowed per interaction (default: 5). |
+| **`p_success_n`** | Probability of heads on flip n (e.g., `p_success_1 = 60%`). Each flip has its own independent probability. |
+| **`points_success_n`** | Points awarded for a successful flip at depth n. These accumulate — depth 3 earns points from flips 1 + 2 + 3. |
+| **`reward_threshold`** | A configurable point value (default: 100). Players whose total points exceed this are counted in `players_above_threshold`. |
+| **KPI** | Key Performance Indicator — aggregate metrics like mean points, median points, % above threshold. Used to evaluate economy health. |
+| **Parameter Sweep** | Running the simulation multiple times, each with a different value for one parameter, to see its effect on KPIs. |
+| **Vectorization** | Processing all players/interactions simultaneously using NumPy matrix operations instead of Python loops. Enables 1M+ players in seconds. |
+| **Seed** | A number that initializes the random number generator. Same seed = same results (deterministic, reproducible). |
+| **Pity System** | (Loot Table only) After N rolls without a rare+ item, the next roll guarantees one. Prevents long unlucky streaks. |
+
+---
+
 ## Table of Contents
 
 - [Coin Flip Simulation](#coin-flip-simulation)
