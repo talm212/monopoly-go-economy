@@ -70,4 +70,6 @@ def config_obj_to_display(config: CoinFlipConfig) -> dict[str, Any]:
     for i, v in enumerate(config.point_values, 1):
         display[f"points_success_{i}"] = int(v) if v == int(v) else v
     display["max_successes"] = config.max_successes
+    display["reward_threshold"] = config.reward_threshold
+    display["churn_boost_multiplier"] = config.churn_boost_multiplier
     return display

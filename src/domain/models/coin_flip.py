@@ -149,6 +149,13 @@ class CoinFlipConfig:
         for i in range(1, max_successes + 1):
             point_values.append(float(csv_data[f"points_success_{i}"]))
 
+        # Pick up reward_threshold / churn_boost_multiplier from the dict
+        # if present (e.g. when edited in the UI), else use function args.
+        if "reward_threshold" in csv_data:
+            threshold = float(csv_data["reward_threshold"])
+        if "churn_boost_multiplier" in csv_data:
+            churn_boost = float(csv_data["churn_boost_multiplier"])
+
         config = cls(
             max_successes=max_successes,
             probabilities=tuple(probabilities),
