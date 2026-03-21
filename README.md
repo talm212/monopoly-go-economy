@@ -351,4 +351,5 @@ The multiplier is configurable via CLI (`--churn-boost`, default 1.3) and the da
 | [Product](docs/02-product.md) | All features and user flows (EN + HE) |
 | [AI Integration](docs/03-ai-integration.md) | AI features and technical details (EN + HE) |
 | [Decisions](docs/04-decisions.md) | 14 key decisions with rationale (EN + HE) |
+| [Math & Calculations](docs/05-math-and-calculations.md) | Every formula, algorithm, and calculation with examples |
 | [Design Logs](design-logs/) | 22 architecture decision records |
