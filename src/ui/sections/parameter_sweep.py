@@ -110,6 +110,12 @@ def render_parameter_sweep(
                     f"{prefill['start']} \u2192 {prefill['end']} "
                     f"({prefill['steps']} steps)"
                 )
+                # Force widget values via session state keys so Streamlit
+                # picks them up instead of stale cached widget state.
+                st.session_state["sweep_param_select"] = prefill_param
+                st.session_state["sweep_start"] = float(prefill["start"])
+                st.session_state["sweep_end"] = float(prefill["end"])
+                st.session_state["sweep_steps"] = int(prefill["steps"])
 
         # --- Parameter selector ---
         param_display_names = list(sweepable.keys())
