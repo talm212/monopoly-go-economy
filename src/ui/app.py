@@ -51,6 +51,7 @@ from src.ui.sections.ai_analysis import render_ai_analysis
 from src.ui.sections.results_section import render_results
 from src.ui.sections.sidebar_history import render_sidebar_history
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -150,6 +151,8 @@ st.set_page_config(
 
 current_feature = _resolve_current_feature()
 current_feature_config: FeatureUIConfig | None = get_feature_config(current_feature)
+logger.info("[PAGE] Render started — feature=%s, session_keys=%s",
+            current_feature, sorted(k for k in st.session_state.keys() if not k.startswith("cf_cfg_")))
 
 # Ensure query param is always in sync
 if st.query_params.get("feature") != current_feature:
@@ -300,13 +303,16 @@ with _setup_container:
         )
 
         if player_df is not None:
+            logger.info("[UPLOAD] Player CSV received: %d rows, columns=%s", player_df.height, player_df.columns)
             validation_errors = _reader.validate_players(player_df)
             if validation_errors:
+                logger.warning("[UPLOAD] Player CSV validation failed: %s", validation_errors)
                 for err in validation_errors:
                     st.error(err)
             else:
                 player_df = normalize_churn_column(player_df)
                 st.session_state["player_data"] = player_df
+                logger.info("[UPLOAD] Player data stored: %d rows", player_df.height)
 
     with upload_right:
         st.markdown("#### Configuration")
@@ -317,6 +323,7 @@ with _setup_container:
         )
 
         if config_df is not None:
+            logger.info("[UPLOAD] Config CSV received: %d rows, columns=%s", config_df.height, config_df.columns)
             try:
                 raw_config = config_df_to_raw_dict(config_df)
                 display_config = raw_dict_to_display(raw_config)
@@ -326,12 +333,13 @@ with _setup_container:
                 # Build the domain config object so Run Simulation is enabled
                 coin_flip_config = CoinFlipConfig.from_csv_dict(raw_config)
                 st.session_state["config"] = coin_flip_config
+                logger.info("[UPLOAD] Config parsed OK: max_successes=%d", coin_flip_config.max_successes)
                 # Purge stale config editor widget keys
                 for _k in list(st.session_state.keys()):
                     if isinstance(_k, str) and _k.startswith("cf_cfg_"):
                         del st.session_state[_k]
             except Exception:
-                logger.exception("Failed to parse config CSV")
+                logger.exception("[UPLOAD] Failed to parse config CSV")
                 st.error("Failed to parse config CSV. Ensure it has 'Input' and 'Value' columns.")
 
     # --- Config editor (only after user uploads config or loads from history) ---
@@ -361,6 +369,8 @@ with _setup_container:
 # --- Seed + Run button + readiness (always visible) ---
 has_players = "player_data" in st.session_state
 has_config = "config" in st.session_state
+logger.info("[STATE] has_players=%s, has_config=%s, config_uploaded=%s",
+            has_players, has_config, st.session_state.get("config_uploaded", False))
 
 # Status message
 _has_loaded_summary = st.session_state.get("loaded_run_summary") is not None
@@ -417,6 +427,8 @@ with run_col:
 
 # --- Execute simulation ---
 if run_clicked and has_players and has_config:
+    logger.info("[RUN] Simulation started — players=%d, seed=%s",
+                st.session_state["player_data"].height, seed)
     player_data_run: pl.DataFrame = st.session_state["player_data"]
     config_run: CoinFlipConfig = st.session_state["config"]
 
@@ -424,6 +436,8 @@ if run_clicked and has_players and has_config:
         with st.spinner("Running simulation..."):
             result = _use_case.execute_from_dataframe(player_data_run, config_run, seed=seed)
 
+        logger.info("[RUN] Simulation complete — interactions=%d, points=%.0f, above_threshold=%d",
+                    result.total_interactions, result.total_points, result.players_above_threshold)
         st.session_state["simulation_result"] = result
         st.session_state["config_changed_since_run"] = False
 
