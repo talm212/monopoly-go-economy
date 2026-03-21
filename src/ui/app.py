@@ -323,6 +323,9 @@ with _setup_container:
                 st.session_state["config_dict"] = display_config
                 st.session_state["config_uploaded"] = True
                 st.session_state["_config_just_loaded"] = True
+                # Build the domain config object so Run Simulation is enabled
+                coin_flip_config = CoinFlipConfig.from_csv_dict(raw_config)
+                st.session_state["config"] = coin_flip_config
                 # Purge stale config editor widget keys
                 for _k in list(st.session_state.keys()):
                     if isinstance(_k, str) and _k.startswith("cf_cfg_"):
