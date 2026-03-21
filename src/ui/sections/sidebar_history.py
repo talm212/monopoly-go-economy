@@ -15,6 +15,7 @@ import streamlit as st
 from src.application.config_conversion import config_obj_to_display
 from src.domain.models.coin_flip import CoinFlipConfig, CoinFlipResult
 from src.infrastructure.store.local_store import LocalSimulationStore
+from src.ui.session_utils import clear_stale_ai_data
 
 logger = logging.getLogger(__name__)
 
@@ -62,15 +63,6 @@ def _format_run_label(run: dict[str, Any]) -> str:
         return f"{created} | {label} | {float(total_pts):,.0f} pts"
     except (ValueError, TypeError):
         return f"{created} | {name or feature}"
-
-
-def _clear_stale_ai_data() -> None:
-    """Clear AI-related session state when simulation results change."""
-    for key in (
-        "ai_insights", "ai_chat_history", "optimizer_steps",
-        "optimizer_best_config", "cached_csv_data",
-    ):
-        st.session_state.pop(key, None)
 
 
 # ---------------------------------------------------------------------------
@@ -187,13 +179,13 @@ def render_sidebar_history(
                                     st.session_state["simulation_result"] = full_result
                                     st.session_state.pop("loaded_run_summary", None)
                                     st.session_state.pop("loaded_run_distribution", None)
-                                    _clear_stale_ai_data()
+                                    clear_stale_ai_data()
                                 elif run_summary:
                                     # Fallback: summary-only view (old runs without parquet)
                                     st.session_state["loaded_run_summary"] = run_summary
                                     st.session_state["loaded_run_distribution"] = run_dist
                                     st.session_state.pop("simulation_result", None)
-                                    _clear_stale_ai_data()
+                                    clear_stale_ai_data()
 
                                 st.session_state["config_changed_since_run"] = False
                                 st.session_state["_config_just_loaded"] = True

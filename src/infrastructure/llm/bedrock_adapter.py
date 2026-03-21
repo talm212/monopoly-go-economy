@@ -15,19 +15,12 @@ import os
 import boto3
 
 from src.infrastructure.llm.constants import DEFAULT_MAX_TOKENS, DEFAULT_SYSTEM_PROMPT
+from src.infrastructure.llm.registry import AVAILABLE_MODELS, DEFAULT_MODEL_LABEL
 
 logger = logging.getLogger(__name__)
 
-# Top models available on Bedrock with math/stats benchmark scores
-BEDROCK_MODELS: dict[str, str] = {
-    "Claude Opus 4.6 (MATH 96.4%)": "us.anthropic.claude-opus-4-6",
-    "Claude Sonnet 4.6 (MATH 94%)": "us.anthropic.claude-sonnet-4-6",
-    "DeepSeek R1 (MATH 90%)": "us.deepseek.r1-v1:0",
-    "Meta Llama 4 Maverick (MATH 85%)": "us.meta.llama4-maverick-17b-instruct-v1:0",
-    "Amazon Nova Pro (MATH 80%)": "us.amazon.nova-pro-v1:0",
-}
-
-DEFAULT_MODEL_LABEL = "Claude Sonnet 4.6 (MATH 94%)"
+# Backward-compatible alias — canonical source is registry.py
+BEDROCK_MODELS = AVAILABLE_MODELS
 
 
 class BedrockAdapter:
@@ -36,11 +29,11 @@ class BedrockAdapter:
     def __init__(
         self,
         region: str | None = None,
-        model_id: str = "us.anthropic.claude-sonnet-4-6",
+        model_id: str | None = None,
     ) -> None:
         resolved_region = region or os.environ.get("AWS_REGION", "us-east-1")
         self._client = boto3.client("bedrock-runtime", region_name=resolved_region)
-        self._model_id = model_id
+        self._model_id = model_id or AVAILABLE_MODELS[DEFAULT_MODEL_LABEL]
 
     @property
     def model_id(self) -> str:

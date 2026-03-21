@@ -24,11 +24,13 @@ from src.application.config_conversion import (
     raw_dict_to_display,
 )
 from src.application.run_simulation import RunSimulationUseCase
+from src.domain.errors import InvalidConfigError
 from src.domain.models.coin_flip import (
     CoinFlipConfig,
     CoinFlipResult,
     _KPI_HELP as _COIN_FLIP_KPI_HELP,
 )
+from src.ui.session_utils import clear_stale_ai_data, config_changed_since_last_run
 from src.domain.simulators.coin_flip import CoinFlipSimulator
 from src.infrastructure.readers.local_reader import LocalDataReader
 from src.infrastructure.readers.normalize import normalize_churn_column
@@ -49,15 +51,6 @@ from src.ui.sections.results_section import render_results
 from src.ui.sections.sidebar_history import render_sidebar_history
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Backward-compatible aliases (used by tests that import from app.py)
-# ---------------------------------------------------------------------------
-
-_config_df_to_raw_dict = config_df_to_raw_dict
-_raw_dict_to_display = raw_dict_to_display
-_display_dict_to_raw = display_dict_to_raw
-_config_obj_to_display = config_obj_to_display
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -129,22 +122,13 @@ def _resolve_current_feature() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Stale data helpers
+# Setup summary builder
 # ---------------------------------------------------------------------------
 
 
-def _clear_stale_ai_data() -> None:
-    """Clear AI-related session state when simulation results change."""
-    for key in (
-        "ai_insights", "ai_chat_history", "optimizer_steps",
-        "optimizer_best_config", "cached_csv_data",
-    ):
-        st.session_state.pop(key, None)
-
-
-def _config_changed_since_last_run() -> bool:
-    """Check whether the config has been edited since the last simulation run."""
-    return bool(st.session_state.get("config_changed_since_run", False))
+def _build_setup_summary() -> str:
+    """Build the setup section label."""
+    return "Setup"
 
 
 # ===========================================================================
@@ -192,7 +176,7 @@ if not st.session_state.get("_app_initialized", False):
                         loaded_config
                     )
                     st.session_state["_config_just_loaded"] = True
-                except (KeyError, ValueError):
+                except (KeyError, InvalidConfigError, ValueError):
                     logger.warning("Could not restore config from last run")
     except Exception:
         logger.exception("Failed to load most recent run")
@@ -364,7 +348,7 @@ with _setup_container:
                     raw_for_model = display_dict_to_raw(edited_config)
                     coin_flip_config = CoinFlipConfig.from_csv_dict(raw_for_model)
                     st.session_state["config"] = coin_flip_config
-                except (KeyError, ValueError) as exc:
+                except (KeyError, InvalidConfigError, ValueError) as exc:
                     st.error(f"Config validation error: {exc}")
                     st.session_state.pop("config", None)
 
@@ -440,7 +424,7 @@ if run_clicked and has_players and has_config:
         st.session_state["config_changed_since_run"] = False
 
         # Clear stale AI data
-        _clear_stale_ai_data()
+        clear_stale_ai_data()
 
         # Auto-save to history (include KPI metrics for loaded view)
         _save_summary = result.to_summary_dict()
@@ -469,7 +453,7 @@ if run_clicked and has_players and has_config:
         st.error("Simulation failed. Check data and configuration.")
 
 # --- Stale config warning ---
-if _config_changed_since_last_run() and has_result:
+if config_changed_since_last_run() and has_result:
     st.warning("Config changed since last run. Re-run to update results.")
 
 

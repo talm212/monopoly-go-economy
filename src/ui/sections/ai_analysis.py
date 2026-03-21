@@ -25,10 +25,12 @@ from src.domain.models.optimization import (
 )
 from src.domain.protocols import FeatureAnalysisContext
 from src.infrastructure.store.local_store import LocalSimulationStore
+from src.domain.errors import InvalidConfigError
 from src.ui.async_helper import run_async
 from src.ui.components.ai_chat_panel import render_ai_chat_panel
 from src.ui.components.insight_cards import render_insight_card
 from src.ui.components.optimizer_comparison import render_optimizer_comparison
+from src.ui.session_utils import clear_stale_ai_data, config_changed_since_last_run
 
 logger = logging.getLogger(__name__)
 
@@ -104,28 +106,6 @@ def _build_ai_context(
 
 
 # ---------------------------------------------------------------------------
-# Stale data helper
-# ---------------------------------------------------------------------------
-
-
-def _clear_stale_ai_data() -> None:
-    """Clear AI-related session state when simulation results change."""
-    for key in (
-        "ai_insights", "ai_chat_history", "optimizer_steps",
-        "optimizer_best_config", "cached_csv_data",
-        "optimizer_original_config", "optimizer_original_kpis",
-        "optimizer_original_distribution", "optimizer_optimized_kpis",
-        "optimizer_optimized_distribution",
-    ):
-        st.session_state.pop(key, None)
-
-
-def _config_changed_since_last_run() -> bool:
-    """Check whether the config has been edited since the last simulation run."""
-    return bool(st.session_state.get("config_changed_since_run", False))
-
-
-# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -150,7 +130,7 @@ def render_ai_analysis(
     """
     st.subheader("AI Analysis")
 
-    if _config_changed_since_last_run():
+    if config_changed_since_last_run():
         st.warning(
             "Config has changed since the last simulation. "
             "AI analysis is based on previous results."
@@ -531,9 +511,9 @@ def _render_optimizer_tab(
                 st.session_state["config_changed_since_run"] = True
 
                 # Clear stale AI data
-                _clear_stale_ai_data()
+                clear_stale_ai_data()
                 st.rerun()
 
-            except (KeyError, ValueError) as exc:
+            except (KeyError, InvalidConfigError, ValueError) as exc:
                 st.error(f"Failed to apply config: {exc}")
                 logger.exception("Failed to apply optimizer config")

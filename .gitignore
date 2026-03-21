@@ -45,15 +45,12 @@ cdk.context.json
 .docker/
 
 # AutoForge (local state, not for git)
-.autoforge/features.db
-.autoforge/features.db-shm
-.autoforge/features.db-wal
-.autoforge/.autoforge/
-.autoforge/prompts/.spec_status.json
+.autoforge/
 
 # Claude Code — local only (not shared)
 .claude/settings.local.json
 .claude/commands/
+.claude/worktrees/
 .claude/skills/streamlit/
 .claude/skills/gsd-to-autoforge-spec/
 .claude/skills/playwright-cli/

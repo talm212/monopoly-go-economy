@@ -14,6 +14,7 @@ from typing import Any
 
 import polars as pl
 
+from src.domain.errors import InvalidConfigError
 from src.domain.protocols import (
     ConfigField,
     ConfigFieldType,
@@ -85,20 +86,20 @@ class LootItem:
     value: float
 
     def validate(self) -> None:
-        """Raise ValueError if the item definition is invalid."""
+        """Raise InvalidConfigError if the item definition is invalid."""
         if not self.name:
-            raise ValueError("Item name must be non-empty")
+            raise InvalidConfigError("Item name must be non-empty")
         if not math.isfinite(self.weight) or self.weight <= 0.0:
-            raise ValueError(
+            raise InvalidConfigError(
                 f"Item '{self.name}' has weight {self.weight}; must be a finite positive number"
             )
         if self.rarity not in VALID_RARITIES:
-            raise ValueError(
+            raise InvalidConfigError(
                 f"Item '{self.name}' has rarity '{self.rarity}'; "
                 f"must be one of {sorted(VALID_RARITIES)}"
             )
         if not math.isfinite(self.value) or self.value < 0.0:
-            raise ValueError(
+            raise InvalidConfigError(
                 f"Item '{self.name}' has value {self.value}; must be a finite non-negative number"
             )
 
@@ -147,29 +148,29 @@ class LootTableConfig:
         self.validate()
 
     def validate(self) -> None:
-        """Raise ValueError if the configuration is invalid."""
+        """Raise InvalidConfigError if the configuration is invalid."""
         if not self.items:
-            raise ValueError("items must contain at least one LootItem")
+            raise InvalidConfigError("items must contain at least one LootItem")
 
         if self.num_rolls <= 0:
-            raise ValueError("num_rolls must be a positive integer")
+            raise InvalidConfigError("num_rolls must be a positive integer")
 
         if self.pity_threshold <= 0:
-            raise ValueError("pity_threshold must be a positive integer")
+            raise InvalidConfigError("pity_threshold must be a positive integer")
 
         # Validate individual items
         names_seen: set[str] = set()
         for item in self.items:
             item.validate()
             if item.name in names_seen:
-                raise ValueError(f"Duplicate item name: '{item.name}'")
+                raise InvalidConfigError(f"Duplicate item name: '{item.name}'")
             names_seen.add(item.name)
 
         # Validate guaranteed items reference existing item names
         item_names = {item.name for item in self.items}
         for gname in self.guaranteed_items:
             if gname not in item_names:
-                raise ValueError(
+                raise InvalidConfigError(
                     f"Guaranteed item '{gname}' is not in the items list"
                 )
 

@@ -12,6 +12,7 @@ from typing import Any
 
 import polars as pl
 
+from src.domain.errors import InvalidPlayerDataError
 from src.infrastructure.readers.normalize import normalize_churn_column
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,7 @@ class LocalDataReader:
 
         Raises:
             FileNotFoundError: If the source file does not exist.
-            ValueError: If required columns are missing or data is invalid.
+            InvalidPlayerDataError: If required columns are missing or data is invalid.
         """
         logger.info("Reading player data from %s", source)
         df = pl.read_csv(source)
@@ -47,7 +48,7 @@ class LocalDataReader:
         if errors:
             msg = "Player data validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
             logger.error(msg)
-            raise ValueError(msg)
+            raise InvalidPlayerDataError(msg)
 
         logger.info("Successfully read %d players from %s", len(df), source)
         return df

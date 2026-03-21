@@ -13,6 +13,7 @@ from typing import Any
 
 import polars as pl
 
+from src.domain.errors import InvalidConfigError
 from src.domain.protocols import ConfigField, ConfigFieldType, ConfigSchema, FeatureAnalysisContext
 
 logger = logging.getLogger(__name__)
@@ -67,29 +68,29 @@ class CoinFlipConfig:
         self.validate()
 
     def validate(self) -> None:
-        """Raise ValueError if the configuration is invalid."""
+        """Raise InvalidConfigError if the configuration is invalid."""
         if self.max_successes <= 0:
-            raise ValueError("max_successes must be a positive integer")
+            raise InvalidConfigError("max_successes must be a positive integer")
 
         if len(self.probabilities) != self.max_successes:
-            raise ValueError(
+            raise InvalidConfigError(
                 f"probabilities length ({len(self.probabilities)}) "
                 f"must equal max_successes ({self.max_successes})"
             )
 
         if len(self.point_values) != self.max_successes:
-            raise ValueError(
+            raise InvalidConfigError(
                 f"point_values length ({len(self.point_values)}) "
                 f"must equal max_successes ({self.max_successes})"
             )
 
         for i, p in enumerate(self.probabilities):
             if not math.isfinite(p) or p < 0.0 or p > 1.0:
-                raise ValueError(f"probability at index {i} is {p}; must be a finite number in [0, 1]")
+                raise InvalidConfigError(f"probability at index {i} is {p}; must be a finite number in [0, 1]")
 
         for i, v in enumerate(self.point_values):
             if not math.isfinite(v) or v < 0.0:
-                raise ValueError(f"point_values at index {i} is {v}; must be a finite non-negative number")
+                raise InvalidConfigError(f"point_values at index {i} is {v}; must be a finite non-negative number")
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize configuration to a plain dictionary."""

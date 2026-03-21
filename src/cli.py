@@ -7,6 +7,8 @@ import sys
 
 import click
 
+from src.domain.errors import InvalidConfigError, InvalidPlayerDataError
+
 logger = logging.getLogger(__name__)
 
 
@@ -105,7 +107,7 @@ def main(
         if output_players:
             click.echo(f"Player results written to: {output_players}")
 
-    except (ValueError, FileNotFoundError) as exc:
+    except (InvalidConfigError, InvalidPlayerDataError, ValueError, FileNotFoundError) as exc:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(1)
     except Exception as exc:
