@@ -6,8 +6,40 @@
 
 ---
 
+## Assignment Deliverables
+
+| # | Requirement | Status | Where |
+|---|------------|--------|-------|
+| 1 | **Code that reads inputs, runs simulation at scale, writes output CSV** | Done | `src/cli.py` reads player + config CSVs, runs vectorized simulation (1M+ players in ~10s), writes `results_summary.csv` + `results_players.csv` |
+| 2 | **Runnable CLI to set reward threshold** | Done | `--threshold` / `-t` flag (default 100.0) — [Quick Start](#quick-start) |
+| 3 | **CLI option for churn multiplier** | Done | `--churn-boost` / `-c` flag (default 1.3) — [Quick Start](#quick-start) |
+| 4 | **README: how to run** | Done | [Quick Start](#quick-start) — `poetry install`, CLI command with all flags, Docker, Streamlit dashboard |
+| 5 | **README: assumptions** | Done | [Assumptions](#assumptions-coin-flip) — integer interactions, cumulative points, churn cap, default churn |
+| 6 | **README: how `about_to_churn` affects probabilities** | Done | [Dedicated section](#how-about_to_churn-affects-probabilities) — 1.3x multiplier, cap at 1.0, concrete examples |
+| 7 | **Tests covering core rules** (optional) | Done | 672 tests — sequential successes, churn boost, points calculation, edge cases, integration, E2E |
+
+### Beyond the Assignment
+
+| Feature | What It Adds |
+|---------|-------------|
+| **Web Dashboard** | Self-service UI — no CLI needed, upload CSVs, edit config with sliders, visualize results |
+| **AI Insights** | 3-5 actionable findings per run, ranked by severity |
+| **AI Chat** | Ask questions about results in natural language |
+| **AI Config Optimizer** | Set a target KPI → AI iteratively tunes config |
+| **Insight-to-Sweep Pipeline** | Two clicks from "AI found a problem" to "here's the data" |
+| **5 AI Models** | Claude Opus, Sonnet, DeepSeek R1, Llama 4, Nova Pro — all via Bedrock |
+| **Parameter Sweep** | Sweep any parameter, see KPI impact as line chart |
+| **Run Comparison** | Side-by-side KPI diff, distribution overlay, config delta |
+| **PDF Report** | One-click export with KPIs, charts, config, AI insights |
+| **Simulation History** | Every run saved, browsable, loadable |
+| **AWS Deployment** | Live on ECS Fargate, 5 CDK stacks, CI/CD pipeline |
+| **Clean Architecture** | 4 layers, Protocol-based interfaces, extensible for new game features |
+
+---
+
 ## Table of Contents
 
+- [Assignment Deliverables](#assignment-deliverables) — Each requirement mapped to its implementation
 - [Product](#product) — Problem, Solution, Key Features, Coin Flip Mechanic
 - [Technical Architecture](#technical-architecture) — Clean Architecture, Vectorization, AWS, Tech Stack, Testing
 - [Key Decisions](#key-decisions) — 14 architectural choices with rationale
