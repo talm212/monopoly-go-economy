@@ -25,6 +25,17 @@ logger = logging.getLogger(__name__)
 _MAX_DISPLAY_RUNS = 50
 _DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
+_HELP_RUN_NAME = (
+    "Type a name and press Enter to save. Helps you find this run later."
+)
+_HELP_LOAD_BUTTON = "Restore this run's config and results to the main view."
+_HELP_DELETE_BUTTON = "Permanently remove this run from history."
+_HELP_COMPARE_A = "First run to compare \u2014 shown on the left side."
+_HELP_COMPARE_B = "Second run to compare \u2014 shown on the right side."
+_HELP_COMPARE_BUTTON = (
+    "Show KPI comparison, distribution overlay, and config diff between two runs."
+)
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -83,7 +94,10 @@ def render_sidebar_history(
     """
     with st.sidebar:
         st.header("History")
-        st.caption("Past simulation runs, sorted newest first. Load a run to view its results, or compare two runs side-by-side.")
+        st.caption(
+            "Past simulation runs, sorted newest first. "
+            "Load a run to view its results, or compare two runs side-by-side."
+        )
 
         all_runs = store.list_runs(feature=feature, limit=_MAX_DISPLAY_RUNS)
 
@@ -109,7 +123,7 @@ def render_sidebar_history(
                         key=f"name_{run_id}",
                         placeholder="Name this run...",
                         label_visibility="collapsed",
-                        help="Type a name and press Enter to save. Helps you find this run later.",
+                        help=_HELP_RUN_NAME,
                     )
                     if new_name != run_name and run_id:
                         try:
@@ -120,7 +134,12 @@ def render_sidebar_history(
 
                     load_col, delete_col = st.columns(2)
                     with load_col:
-                        if st.button("Load", key=f"load_{run_id}", use_container_width=True, help="Restore this run's config and results to the main view."):
+                        if st.button(
+                            "Load",
+                            key=f"load_{run_id}",
+                            use_container_width=True,
+                            help=_HELP_LOAD_BUTTON,
+                        ):
                             run_config = run.get("config", {})
                             try:
                                 if run_config:
@@ -145,13 +164,25 @@ def render_sidebar_history(
                                     success_counts = {
                                         int(k): int(v) for k, v in run_dist.items()
                                     } if run_dist else {}
+                                    _total_int = int(
+                                        run_summary.get("total_interactions", 0)
+                                    )
+                                    _total_pts = float(
+                                        run_summary.get("total_points", 0)
+                                    )
+                                    _above = int(
+                                        run_summary.get("players_above_threshold", 0)
+                                    )
+                                    _thresh = float(
+                                        run_summary.get("threshold", 100)
+                                    )
                                     full_result = CoinFlipResult(
                                         player_results=player_df,
-                                        total_interactions=int(run_summary.get("total_interactions", 0)),
+                                        total_interactions=_total_int,
                                         success_counts=success_counts,
-                                        total_points=float(run_summary.get("total_points", 0)),
-                                        players_above_threshold=int(run_summary.get("players_above_threshold", 0)),
-                                        threshold=float(run_summary.get("threshold", 100)),
+                                        total_points=_total_pts,
+                                        players_above_threshold=_above,
+                                        threshold=_thresh,
                                     )
                                     st.session_state["simulation_result"] = full_result
                                     st.session_state.pop("loaded_run_summary", None)
@@ -171,7 +202,12 @@ def render_sidebar_history(
                             except Exception as exc:
                                 st.error(f"Failed to load run: {exc}")
                     with delete_col:
-                        if st.button("Delete", key=f"del_{run_id}", use_container_width=True, help="Permanently remove this run from history."):
+                        if st.button(
+                            "Delete",
+                            key=f"del_{run_id}",
+                            use_container_width=True,
+                            help=_HELP_DELETE_BUTTON,
+                        ):
                             try:
                                 store.delete_run(run["run_id"])
                                 st.toast("Run deleted.")
@@ -195,7 +231,7 @@ def render_sidebar_history(
                     format_func=lambda x: run_labels.get(x, x),
                     index=0,
                     key="sidebar_compare_a",
-                    help="First run to compare — shown on the left side.",
+                    help=_HELP_COMPARE_A,
                 )
                 default_b = 1 if len(run_ids) > 1 else 0
                 selected_b = st.selectbox(
@@ -204,11 +240,16 @@ def render_sidebar_history(
                     format_func=lambda x: run_labels.get(x, x),
                     index=default_b,
                     key="sidebar_compare_b",
-                    help="Second run to compare — shown on the right side.",
+                    help=_HELP_COMPARE_B,
                 )
 
                 if selected_a and selected_b and selected_a != selected_b:
-                    if st.button("Compare Side-by-Side", type="primary", use_container_width=True, help="Show KPI comparison, distribution overlay, and config diff between two runs."):
+                    if st.button(
+                        "Compare Side-by-Side",
+                        type="primary",
+                        use_container_width=True,
+                        help=_HELP_COMPARE_BUTTON,
+                    ):
                         st.session_state["comparison_mode"] = True
                         st.session_state["comparison_runs"] = (
                             store.get_run(selected_a),

@@ -21,6 +21,7 @@ import pytest
 
 from src.domain.models.coin_flip import CoinFlipResult
 from src.domain.protocols import (
+    FeatureAnalysisContext,
     ResultsDisplay,
     SimulationResult,
     Simulator,
@@ -139,6 +140,15 @@ class StubResultsDisplay:
 
     def get_dataframe(self) -> pl.DataFrame:
         return pl.DataFrame({"user_id": [1, 2], "score": [10.0, 20.0]})
+
+    def to_analysis_context(self, config: SimulatorConfig) -> FeatureAnalysisContext:
+        return FeatureAnalysisContext(
+            feature_name="stub",
+            result_summary={},
+            distribution=self.get_distribution(),
+            config=config.to_dict(),
+            kpi_metrics={"mean_score": 42.0},
+        )
 
 
 class NotAResultsDisplay:

@@ -10,12 +10,13 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 
 import boto3
 
-logger = logging.getLogger(__name__)
+from src.infrastructure.llm.constants import DEFAULT_MAX_TOKENS, DEFAULT_SYSTEM_PROMPT
 
-_DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant."
+logger = logging.getLogger(__name__)
 
 # Top models available on Bedrock with math/stats benchmark scores
 BEDROCK_MODELS: dict[str, str] = {
@@ -34,10 +35,11 @@ class BedrockAdapter:
 
     def __init__(
         self,
-        region: str = "us-east-1",
+        region: str | None = None,
         model_id: str = "us.anthropic.claude-sonnet-4-6",
     ) -> None:
-        self._client = boto3.client("bedrock-runtime", region_name=region)
+        resolved_region = region or os.environ.get("AWS_REGION", "us-east-1")
+        self._client = boto3.client("bedrock-runtime", region_name=resolved_region)
         self._model_id = model_id
 
     @property
@@ -70,8 +72,8 @@ class BedrockAdapter:
         logger.info("Calling Bedrock Anthropic (model=%s)", self._model_id)
         body = {
             "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 4096,
-            "system": system if system else _DEFAULT_SYSTEM_PROMPT,
+            "max_tokens": DEFAULT_MAX_TOKENS,
+            "system": system if system else DEFAULT_SYSTEM_PROMPT,
             "messages": [{"role": "user", "content": prompt}],
         }
         response = await asyncio.to_thread(

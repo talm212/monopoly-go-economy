@@ -10,9 +10,9 @@ import logging
 
 from anthropic import AsyncAnthropic
 
-logger = logging.getLogger(__name__)
+from src.infrastructure.llm.constants import DEFAULT_MAX_TOKENS, DEFAULT_SYSTEM_PROMPT
 
-_DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant."
+logger = logging.getLogger(__name__)
 
 
 class AnthropicAdapter:
@@ -43,8 +43,8 @@ class AnthropicAdapter:
         logger.info("Calling Anthropic API (model=%s)", self._model)
         response = await self._client.messages.create(
             model=self._model,
-            max_tokens=4096,
-            system=system if system else _DEFAULT_SYSTEM_PROMPT,
+            max_tokens=DEFAULT_MAX_TOKENS,
+            system=system if system else DEFAULT_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],
         )
         text_blocks = [b for b in response.content if hasattr(b, "text")]

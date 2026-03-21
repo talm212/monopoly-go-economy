@@ -33,7 +33,7 @@ _LIST_PARAMS = {"probabilities", "point_values"}
 # ---------------------------------------------------------------------------
 
 
-@dataclass
+@dataclass(frozen=True)
 class SweepPoint:
     """Result from one sweep configuration.
 

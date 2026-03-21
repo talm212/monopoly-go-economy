@@ -7,12 +7,14 @@ distribution data from run summary dictionaries.
 from __future__ import annotations
 
 import logging
-import math
 from typing import Any
 
 import altair as alt
 import polars as pl
 import streamlit as st
+
+from src.ui.formatting import fmt as _fmt
+from src.ui.formatting import fmt_delta as _fmt_delta
 
 logger = logging.getLogger(__name__)
 
@@ -57,24 +59,6 @@ _COMPARISON_HELP: dict[str, str] = {
         "Delta = how many more/fewer players crossed the threshold between runs."
     ),
 }
-
-
-def _fmt(value: float) -> str:
-    """Format a number — drop .00 for whole numbers."""
-    if not math.isfinite(value):
-        return f"{value}"
-    if value == int(value):
-        return f"{int(value):,}"
-    return f"{value:,.2f}"
-
-
-def _fmt_delta(value: float) -> str | None:
-    """Format a delta value — drop .00 for whole numbers, None if zero."""
-    if value == 0:
-        return None
-    if value == int(value):
-        return f"{int(value):+,}"
-    return f"{value:+,.2f}"
 
 
 def _render_metric_comparison(

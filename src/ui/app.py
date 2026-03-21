@@ -24,8 +24,11 @@ from src.application.config_conversion import (
     raw_dict_to_display,
 )
 from src.application.run_simulation import RunSimulationUseCase
-from src.domain.models.coin_flip import CoinFlipConfig, CoinFlipResult
-from src.domain.models.coin_flip import _KPI_HELP as _COIN_FLIP_KPI_HELP
+from src.domain.models.coin_flip import (
+    CoinFlipConfig,
+    CoinFlipResult,
+    _KPI_HELP as _COIN_FLIP_KPI_HELP,
+)
 from src.domain.simulators.coin_flip import CoinFlipSimulator
 from src.infrastructure.readers.local_reader import LocalDataReader
 from src.infrastructure.readers.normalize import normalize_churn_column
@@ -142,16 +145,6 @@ def _clear_stale_ai_data() -> None:
 def _config_changed_since_last_run() -> bool:
     """Check whether the config has been edited since the last simulation run."""
     return bool(st.session_state.get("config_changed_since_run", False))
-
-
-# ---------------------------------------------------------------------------
-# Setup summary builder
-# ---------------------------------------------------------------------------
-
-
-def _build_setup_summary() -> str:
-    """Build the setup section label."""
-    return "Setup"
 
 
 # ===========================================================================
@@ -304,7 +297,7 @@ has_result = "simulation_result" in st.session_state
 
 # After first run: collapsible expander with summary. Before: regular heading.
 if has_result:
-    _setup_container = st.expander(_build_setup_summary(), expanded=False)
+    _setup_container = st.expander("Setup", expanded=False)
 else:
     st.subheader("Setup")
     _setup_container = st.container()
