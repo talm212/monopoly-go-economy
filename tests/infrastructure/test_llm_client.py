@@ -256,23 +256,21 @@ class TestBedrockAdapterExtended:
     async def test_model_id_setter(self) -> None:
         """Create adapter, change model_id, verify the new ID is used."""
         mock_bedrock_client = MagicMock()
-        response_body = json.dumps(
-            {"content": [{"text": "response"}]}
-        ).encode()
-        mock_body = MagicMock()
-        mock_body.read.return_value = response_body
-        mock_bedrock_client.invoke_model.return_value = {"body": mock_body}
+        # Mock converse API for non-Anthropic model
+        mock_bedrock_client.converse.return_value = {
+            "output": {"message": {"content": [{"text": "response"}]}},
+        }
 
         with patch("src.infrastructure.llm.bedrock_adapter.boto3") as mock_boto3:
             mock_boto3.client.return_value = mock_bedrock_client
             adapter = BedrockAdapter(model_id="us.anthropic.claude-sonnet-4-6")
 
-        # Mutate model_id
+        # Mutate model_id to non-Anthropic model (routes to converse API)
         adapter._model_id = "us.amazon.nova-pro-v1:0"
 
         await adapter.complete("test")
 
-        call_kwargs = mock_bedrock_client.invoke_model.call_args.kwargs
+        call_kwargs = mock_bedrock_client.converse.call_args.kwargs
         assert call_kwargs["modelId"] == "us.amazon.nova-pro-v1:0"
 
     @pytest.mark.asyncio
@@ -327,12 +325,19 @@ class TestBedrockAdapterExtended:
     async def test_parametrized_model_ids(self, model_id: str) -> None:
         """Verify completion works with various model IDs (anthropic and non-anthropic)."""
         mock_bedrock_client = MagicMock()
-        response_body = json.dumps(
-            {"content": [{"text": f"Response from {model_id}"}]}
-        ).encode()
-        mock_body = MagicMock()
-        mock_body.read.return_value = response_body
-        mock_bedrock_client.invoke_model.return_value = {"body": mock_body}
+        is_anthropic = "anthropic" in model_id
+
+        if is_anthropic:
+            response_body = json.dumps(
+                {"content": [{"text": f"Response from {model_id}"}]}
+            ).encode()
+            mock_body = MagicMock()
+            mock_body.read.return_value = response_body
+            mock_bedrock_client.invoke_model.return_value = {"body": mock_body}
+        else:
+            mock_bedrock_client.converse.return_value = {
+                "output": {"message": {"content": [{"text": f"Response from {model_id}"}]}},
+            }
 
         with patch("src.infrastructure.llm.bedrock_adapter.boto3") as mock_boto3:
             mock_boto3.client.return_value = mock_bedrock_client
@@ -341,7 +346,10 @@ class TestBedrockAdapterExtended:
         result = await adapter.complete("hello")
 
         assert result == f"Response from {model_id}"
-        call_kwargs = mock_bedrock_client.invoke_model.call_args.kwargs
+        if is_anthropic:
+            call_kwargs = mock_bedrock_client.invoke_model.call_args.kwargs
+        else:
+            call_kwargs = mock_bedrock_client.converse.call_args.kwargs
         assert call_kwargs["modelId"] == model_id
 
     def test_is_anthropic_model_detection(self) -> None:
