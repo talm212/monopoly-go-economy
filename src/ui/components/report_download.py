@@ -42,7 +42,7 @@ def render_report_download(
     ):
         try:
             with st.spinner("Generating PDF report..."):
-                pdf_bytes = _generator.generate(
+                generated_pdf = _generator.generate(
                     config=config,
                     kpi_metrics=kpi_metrics,
                     distribution=distribution,
@@ -50,18 +50,18 @@ def render_report_download(
                     insights=insights,
                     feature_name=feature_name,
                 )
-            st.session_state["_report_pdf_bytes"] = pdf_bytes
+            st.session_state["_report_pdf_bytes"] = generated_pdf
         except Exception:
             logger.exception("Failed to generate PDF report")
             st.error("Failed to generate PDF report.")
             return
 
     # Show download button only after PDF is generated
-    pdf_bytes: bytes | None = st.session_state.get("_report_pdf_bytes")
-    if pdf_bytes is not None:
+    stored_pdf: bytes | None = st.session_state.get("_report_pdf_bytes")
+    if stored_pdf is not None:
         st.download_button(
             label=f"Download {display_name} Report (PDF)",
-            data=pdf_bytes,
+            data=stored_pdf,
             file_name=f"{feature_name}_simulation_report.pdf",
             mime="application/pdf",
             key="download_report_pdf",

@@ -309,11 +309,14 @@ class CoinFlipResult:
                 }
             else:
                 pts = seg_df["total_points"]
+                raw_mean = pts.mean()
+                raw_median = pts.median()
+                raw_sum = pts.sum()
                 segments[label] = {
                     "Player Count": float(seg_df.height),
-                    "Avg Points / Player": float(pts.mean() or 0.0),
-                    "Median Points / Player": float(pts.median() or 0.0),
-                    "Total Points": float(pts.sum() or 0.0),
+                    "Avg Points / Player": float(raw_mean) if raw_mean is not None else 0.0,
+                    "Median Points / Player": float(raw_median) if raw_median is not None else 0.0,
+                    "Total Points": float(raw_sum) if raw_sum is not None else 0.0,
                 }
         return segments
 
@@ -343,15 +346,21 @@ class CoinFlipResult:
         if "about_to_churn" in self.player_results.columns:
             churn_df = self.player_results.filter(pl.col("about_to_churn"))
             non_churn_df = self.player_results.filter(~pl.col("about_to_churn"))
+            churn_mean = churn_df["total_points"].mean()
+            churn_median = churn_df["total_points"].median()
+            churn_sum = churn_df["total_points"].sum()
+            nc_mean = non_churn_df["total_points"].mean()
+            nc_median = non_churn_df["total_points"].median()
+            nc_sum = non_churn_df["total_points"].sum()
             segment_data = {
                 "churn_player_count": churn_df.height,
-                "churn_mean_points": float(churn_df["total_points"].mean() or 0),
-                "churn_median_points": float(churn_df["total_points"].median() or 0),
-                "churn_total_points": float(churn_df["total_points"].sum() or 0),
+                "churn_mean_points": float(churn_mean) if churn_mean is not None else 0.0,
+                "churn_median_points": float(churn_median) if churn_median is not None else 0.0,
+                "churn_total_points": float(churn_sum) if churn_sum is not None else 0.0,
                 "non_churn_player_count": non_churn_df.height,
-                "non_churn_mean_points": float(non_churn_df["total_points"].mean() or 0),
-                "non_churn_median_points": float(non_churn_df["total_points"].median() or 0),
-                "non_churn_total_points": float(non_churn_df["total_points"].sum() or 0),
+                "non_churn_mean_points": float(nc_mean) if nc_mean is not None else 0.0,
+                "non_churn_median_points": float(nc_median) if nc_median is not None else 0.0,
+                "non_churn_total_points": float(nc_sum) if nc_sum is not None else 0.0,
             }
             result_summary["churn_segment"] = segment_data
 

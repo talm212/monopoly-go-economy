@@ -17,6 +17,7 @@ from typing import Any
 import polars as pl
 import streamlit as st
 
+from src.domain.protocols import LLMClient
 from src.application.config_conversion import (
     config_df_to_raw_dict,
     config_obj_to_display,
@@ -90,7 +91,7 @@ def _get_use_case() -> RunSimulationUseCase:
 
 
 @st.cache_resource
-def _get_llm_client():  # noqa: ANN202
+def _get_llm_client() -> LLMClient:
     """Return a singleton LLM client (cached across reruns)."""
     from src.infrastructure.llm.client import get_llm_client
 
@@ -346,7 +347,7 @@ with _setup_container:
                 st.session_state["config_uploaded"] = True
                 # Purge stale config editor widget keys
                 for _k in list(st.session_state.keys()):
-                    if _k.startswith("cf_cfg_"):
+                    if isinstance(_k, str) and _k.startswith("cf_cfg_"):
                         del st.session_state[_k]
             except Exception:
                 logger.exception("Failed to parse config CSV")

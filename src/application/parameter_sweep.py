@@ -14,6 +14,7 @@ from typing import Any
 import polars as pl
 
 from src.domain.models.coin_flip import CoinFlipConfig
+from src.domain.protocols import Simulator
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +176,7 @@ class ParameterSweep:
             (e.g. CoinFlipSimulator).
     """
 
-    def __init__(self, simulator: Any) -> None:
+    def __init__(self, simulator: Simulator) -> None:
         self._simulator = simulator
 
     def run(

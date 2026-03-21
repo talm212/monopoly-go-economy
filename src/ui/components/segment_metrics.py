@@ -17,9 +17,12 @@ def render_segment_metrics(segment: pl.DataFrame, label: str) -> None:
         return
 
     points_col = segment["total_points"]
-    mean_val = float(points_col.mean() or 0.0)
-    median_val = float(points_col.median() or 0.0)
-    total_val = float(points_col.sum() or 0.0)
+    raw_mean = points_col.mean()
+    raw_median = points_col.median()
+    raw_sum = points_col.sum()
+    mean_val = float(raw_mean) if raw_mean is not None else 0.0
+    median_val = float(raw_median) if raw_median is not None else 0.0
+    total_val = float(raw_sum) if raw_sum is not None else 0.0
 
     def _fmt_num(v: float) -> str:
         return f"{int(v):,}" if v == int(v) else f"{v:,.2f}"
