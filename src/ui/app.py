@@ -197,7 +197,14 @@ if current_feature_config is not None:
 else:
     _page_title = "Economy Simulator"
 
-st.title(_page_title)
+_title_col, _fun_col = st.columns([5, 1])
+with _title_col:
+    st.title(_page_title)
+with _fun_col:
+    st.caption("Something doesn't work?")
+    if st.button("Click me", key="easter_egg_btn"):
+        st.balloons()
+        st.toast("Do you feel better now?")
 
 # Feature selector — only shown when multiple features exist
 if len(_feature_names) > 1:
