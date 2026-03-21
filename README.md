@@ -6,6 +6,19 @@
 
 ---
 
+## Table of Contents
+
+- [Product](#product) — Problem, Solution, Key Features, Coin Flip Mechanic
+- [Technical Architecture](#technical-architecture) — Clean Architecture, Vectorization, AWS, Tech Stack, Testing
+- [Key Decisions](#key-decisions) — 14 architectural choices with rationale
+- [Roadmap](#roadmap-whats-next) — 5 phases from new simulators to team collaboration
+- [Quick Start](#quick-start) — Install, run, deploy
+- [Project Structure](#project-structure) — Source layout
+- [Assumptions](#assumptions-coin-flip) — Coin Flip domain rules
+- [Documentation](#documentation) — Deep dives, design logs
+
+---
+
 ## Product
 
 ### The Problem
@@ -39,6 +52,8 @@ A self-service web dashboard where economy designers can:
 | **Multi-Model Selection** | 5 AI models in the dashboard: Claude Opus 4.6, Claude Sonnet 4.6, DeepSeek R1, Llama 4, Nova Pro |
 | **Parameter Sweep** | Sweep any parameter across a range, see KPI impact as a line chart |
 | **Churn Analysis** | Side-by-side comparison of churning vs non-churning player segments |
+| **Run Comparison** | Select two saved runs → side-by-side KPI diff, distribution overlay, config delta highlighting |
+| **Report Creator** | One-click PDF report with KPIs, charts, config, and AI insights — or export raw results as CSV |
 | **Simulation History** | Every run saved, browsable, loadable, comparable |
 | **Config Editor** | Dynamic form with tooltips, percentage sliders, change tracking |
 
