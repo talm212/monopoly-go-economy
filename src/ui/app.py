@@ -406,13 +406,14 @@ with seed_col:
     seed: int | None = int(seed_input) if seed_input is not None else None
 
 with run_col:
-    run_disabled = not (has_players and has_config)
+    _is_running = st.session_state.get("_simulation_running", False)
+    run_disabled = not (has_players and has_config) or _is_running
     st.markdown(
         '<p style="font-size:14px;margin-bottom:4px;">&nbsp;</p>',
         unsafe_allow_html=True,
     )
     run_clicked = st.button(
-        "Run Simulation",
+        "Running..." if _is_running else "Run Simulation",
         type="primary",
         use_container_width=True,
         key="cf_run",
@@ -427,6 +428,7 @@ with run_col:
 
 # --- Execute simulation ---
 if run_clicked and has_players and has_config:
+    st.session_state["_simulation_running"] = True
     logger.info("[RUN] Simulation started — players=%d, seed=%s",
                 st.session_state["player_data"].height, seed)
     player_data_run: pl.DataFrame = st.session_state["player_data"]
@@ -460,6 +462,7 @@ if run_clicked and has_players and has_config:
         except Exception:
             logger.exception("Failed to auto-save simulation run")
 
+        st.session_state.pop("_simulation_running", None)
         st.toast(
             f"Simulation complete — {result.total_interactions:,} interactions "
             f"across {player_data_run.height:,} players."
@@ -467,6 +470,7 @@ if run_clicked and has_players and has_config:
         st.rerun()
 
     except Exception:
+        st.session_state.pop("_simulation_running", None)
         logger.exception("Simulation failed")
         st.error("Simulation failed. Check data and configuration.")
 
