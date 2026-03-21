@@ -1,25 +1,17 @@
-"""Core simulator protocols defining the contracts every simulator must implement.
+"""Display protocols — config schema metadata and result rendering contracts.
 
-These are the foundational abstractions for the economy simulation platform.
-All simulator implementations (coin flip, loot tables, etc.) conform to these
-protocols, enabling a uniform interface for orchestration, UI, and testing.
+Defines the data structures for building UI config editors (ConfigFieldType,
+ConfigField, ConfigSchema) and the protocol for rendering simulation results
+in the dashboard (ResultsDisplay).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Protocol, TypeVar, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 import polars as pl
-
-TConfig = TypeVar("TConfig", bound="SimulatorConfig")
-TResult = TypeVar("TResult", bound="SimulationResult")
-
-
-# ---------------------------------------------------------------------------
-# Config schema — reusable metadata for building UI editors
-# ---------------------------------------------------------------------------
 
 
 class ConfigFieldType(Enum):
@@ -125,111 +117,6 @@ class ConfigSchema:
         return result
 
 
-@dataclass(frozen=True)
-class FeatureAnalysisContext:
-    """Generic AI analysis context that any feature simulator can produce.
-
-    Encapsulates all the data needed by InsightsAnalyst, ChatAssistant,
-    and ConfigOptimizer so the AI layer is feature-agnostic.
-
-    Attributes:
-        feature_name: Identifier for the simulation feature (e.g. "coin_flip").
-        result_summary: High-level summary from SimulationResult.to_summary_dict().
-        distribution: Outcome distribution from SimulationResult.get_distribution().
-        config: Configuration dict from SimulatorConfig.to_dict().
-        kpi_metrics: Key performance indicators from SimulationResult.get_kpi_metrics().
-        segment_data: Optional breakdown by player segment (e.g. churn vs non-churn).
-    """
-
-    feature_name: str
-    result_summary: dict[str, Any]
-    distribution: dict[str, int]
-    config: dict[str, Any]
-    kpi_metrics: dict[str, float]
-    segment_data: dict[str, Any] | None = field(default=None)
-
-
-@runtime_checkable
-class SimulatorConfig(Protocol):
-    """Contract for simulator configuration objects.
-
-    Implementations should be dataclasses or pydantic models holding
-    all tunable parameters for a specific simulation feature.
-    """
-
-    def validate(self) -> None:
-        """Raise ValueError if the configuration is invalid."""
-        ...
-
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize configuration to a plain dictionary."""
-        ...
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> SimulatorConfig:
-        """Construct a configuration instance from a plain dictionary."""
-        ...
-
-
-@runtime_checkable
-class SimulationResult(Protocol):
-    """Contract for simulation result objects.
-
-    Wraps the raw output of a simulation run and provides
-    standard accessors for summaries, distributions, and KPIs.
-    """
-
-    def to_summary_dict(self) -> dict[str, Any]:
-        """Return a high-level summary as a dictionary."""
-        ...
-
-    def to_dataframe(self) -> pl.DataFrame:
-        """Return the full result data as a Polars DataFrame."""
-        ...
-
-    def get_distribution(self) -> dict[str, int]:
-        """Return a distribution of results bucketed by string keys."""
-        ...
-
-    def get_kpi_metrics(self) -> dict[str, float]:
-        """Return key performance indicators as metric-name to float-value."""
-        ...
-
-
-@runtime_checkable
-class Simulator(Protocol):
-    """Contract for simulator engines.
-
-    Each game feature (coin flip, loot table, etc.) implements this
-    protocol to provide a consistent simulate-and-validate interface.
-    """
-
-    def simulate(
-        self,
-        players: pl.DataFrame,
-        config: SimulatorConfig,
-        seed: int | None = None,
-    ) -> SimulationResult:
-        """Run the simulation for all players with the given config.
-
-        Args:
-            players: Polars DataFrame with at least a ``user_id`` column.
-            config: Feature-specific configuration satisfying SimulatorConfig.
-            seed: Optional RNG seed for reproducibility.
-
-        Returns:
-            A SimulationResult wrapping the per-player outcomes.
-        """
-        ...
-
-    def validate_input(self, players: pl.DataFrame) -> list[str]:
-        """Validate the player DataFrame and return a list of error messages.
-
-        Returns an empty list when the input is valid.
-        """
-        ...
-
-
 @runtime_checkable
 class ResultsDisplay(Protocol):
     """Contract for rendering simulation results in the UI.
@@ -262,25 +149,4 @@ class ResultsDisplay(Protocol):
 
     def get_dataframe(self) -> pl.DataFrame:
         """Return the full result DataFrame for download / display."""
-        ...
-
-
-@runtime_checkable
-class LLMClient(Protocol):
-    """Contract for LLM client adapters.
-
-    All adapters (Anthropic direct, Bedrock, etc.) implement this
-    protocol to provide a uniform interface for text completion.
-    """
-
-    async def complete(self, prompt: str, system: str = "") -> str:
-        """Send a prompt to the LLM and return the text response.
-
-        Args:
-            prompt: The user message to send.
-            system: Optional system prompt. Defaults to a generic assistant prompt.
-
-        Returns:
-            The model's text response.
-        """
         ...
