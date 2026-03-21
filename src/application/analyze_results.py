@@ -138,7 +138,9 @@ class InsightsAnalyst:
             f"**Result Summary:**\n{json.dumps(result_summary, indent=2)}\n\n"
             f"**Success Distribution:**\n{json.dumps(distribution, indent=2)}\n\n"
             f"**KPI Metrics:**\n{json.dumps(kpi_metrics, indent=2)}\n\n"
-            "Provide 3-5 actionable insights as a JSON array."
+            "Provide 3-5 actionable insights as a JSON array.\n"
+            "IMPORTANT: At least 2 insights MUST include a sweep_suggestion so the user "
+            "can immediately explore the parameter space. Choose the most impactful parameters."
         )
 
     def _parse_insights(self, response: str) -> list[Insight]:

@@ -164,6 +164,8 @@ def render_sidebar_history(
                                     st.session_state.pop("simulation_result", None)
                                     _clear_stale_ai_data()
 
+                                st.session_state["config_changed_since_run"] = False
+                                st.session_state["_config_just_loaded"] = True
                                 st.toast(f"Loaded run from {created}")
                                 st.rerun()
                             except Exception as exc:

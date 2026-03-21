@@ -274,6 +274,7 @@ class CoinFlipResult:
 
         Matches the required output from the Tech Test spec:
         total_roll_interactions, total_points, players_above_threshold.
+        Success counts are shown in the distribution chart, not as KPI cards.
         """
         return {
             "Total Interactions": (

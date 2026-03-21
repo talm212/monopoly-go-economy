@@ -182,11 +182,10 @@ if st.query_params.get("feature") != current_feature:
 # Persistence: load most recent run on startup
 # ===========================================================================
 
-store = LocalSimulationStore()
-
 # Load last run config ONLY on first app load (not on every rerun)
 if not st.session_state.get("_app_initialized", False):
     st.session_state["_app_initialized"] = True
+    st.session_state["config_changed_since_run"] = False
     try:
         recent_runs = store.list_runs(feature=current_feature, limit=1)
         if recent_runs:
@@ -199,6 +198,7 @@ if not st.session_state.get("_app_initialized", False):
                     st.session_state["config_dict"] = config_obj_to_display(
                         loaded_config
                     )
+                    st.session_state["_config_just_loaded"] = True
                 except (KeyError, ValueError):
                     logger.warning("Could not restore config from last run")
     except Exception:
@@ -344,6 +344,7 @@ with _setup_container:
                 display_config = raw_dict_to_display(raw_config)
                 st.session_state["config_dict"] = display_config
                 st.session_state["config_uploaded"] = True
+                st.session_state["_config_just_loaded"] = True
                 # Purge stale config editor widget keys
                 for _k in list(st.session_state.keys()):
                     if _k.startswith("cf_cfg_"):
@@ -359,8 +360,10 @@ with _setup_container:
             edited_config = render_config_editor(current_display, key_prefix="cf_cfg")
 
             # Only rebuild CoinFlipConfig if the user actually changed something.
-            # On first render after Load, widgets may return defaults — skip validation.
-            if edited_config != current_display:
+            # Skip on first render after Load — widgets return defaults before they
+            # pick up the loaded values.
+            _skip_change_check = st.session_state.pop("_config_just_loaded", False)
+            if not _skip_change_check and edited_config != current_display:
                 st.session_state["config_changed_since_run"] = True
                 st.session_state["config_dict"] = edited_config
 
@@ -503,7 +506,6 @@ if has_any_result:
                 help_texts={label: help_text for label, (_, help_text) in kpi_cards.items()},
             )
         elif loaded_summary:
-            # Show spec-required KPIs matching fresh run cards
             render_kpi_cards(
                 {
                     "Total Interactions": loaded_summary.get("total_interactions", 0),

@@ -161,7 +161,28 @@ def render_ai_analysis(
         "Requires an LLM provider (Bedrock or Anthropic) to be configured."
     )
 
+    # --- Model selector ---
+    from src.infrastructure.llm.bedrock_adapter import BEDROCK_MODELS, DEFAULT_MODEL_LABEL
+
+    model_labels = list(BEDROCK_MODELS.keys())
+    default_idx = model_labels.index(DEFAULT_MODEL_LABEL) if DEFAULT_MODEL_LABEL in model_labels else 0
+    selected_model_label = st.selectbox(
+        "AI Model",
+        options=model_labels,
+        index=default_idx,
+        key="ai_model_select",
+        help="Select the AI model for insights, chat, and optimizer. Scores show MATH benchmark performance.",
+    )
+    selected_model_id = BEDROCK_MODELS[selected_model_label]
+
     context = _build_ai_context(sim_result, loaded_summary, loaded_distribution)
+
+    def _get_llm_with_model():  # noqa: ANN202
+        """Return the LLM client with the user-selected model applied."""
+        client = get_llm_client()
+        if hasattr(client, "model_id"):
+            client.model_id = selected_model_id
+        return client
 
     insights_tab, chat_tab, optimizer_tab = st.tabs(
         [
@@ -178,7 +199,7 @@ def render_ai_analysis(
             distribution=context.distribution,
             config_dict=context.config,
             kpi_metrics=context.kpi_metrics,
-            get_llm_client=get_llm_client,
+            get_llm_client=_get_llm_with_model,
             feature_name=context.feature_name,
         )
 
@@ -189,7 +210,7 @@ def render_ai_analysis(
             distribution=context.distribution,
             config_dict=context.config,
             kpi_metrics=context.kpi_metrics,
-            get_llm_client=get_llm_client,
+            get_llm_client=_get_llm_with_model,
         )
 
     # --- Optimizer tab ---
@@ -197,7 +218,7 @@ def render_ai_analysis(
         _render_optimizer_tab(
             use_case=use_case,
             store=store,
-            get_llm_client=get_llm_client,
+            get_llm_client=_get_llm_with_model,
         )
 
 

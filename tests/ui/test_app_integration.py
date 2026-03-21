@@ -258,9 +258,9 @@ class TestResultsDisplay:
         assert not at.exception, (
             f"App raised exception with result: {at.exception}"
         )
-        # Coin flip KPI bar renders 4 metrics: Mean, Median, Total, % Above
-        assert len(at.metric) >= 4, (
-            f"Expected at least 4 KPI metrics, got {len(at.metric)}"
+        # KPI bar: Total Interactions, Total Points, Players Above Threshold
+        assert len(at.metric) >= 3, (
+            f"Expected at least 3 KPI metrics, got {len(at.metric)}"
         )
 
     def test_loaded_summary_shows_kpis(self) -> None:
@@ -283,7 +283,7 @@ class TestResultsDisplay:
         assert not at.exception, (
             f"App raised exception with loaded summary: {at.exception}"
         )
-        # Loaded summary renders 3 spec-required KPI metrics
+        # Loaded summary: Total Interactions, Total Points, Players Above Threshold
         assert len(at.metric) >= 3, (
             f"Expected at least 3 KPI metrics from loaded summary, got {len(at.metric)}"
         )

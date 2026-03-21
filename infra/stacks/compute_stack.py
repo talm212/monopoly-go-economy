@@ -114,7 +114,7 @@ class ComputeStack(cdk.Stack):
         # Grant Bedrock invoke access for AI features (insights, chat, optimizer)
         task_role.add_to_principal_policy(
             iam.PolicyStatement(
-                actions=["bedrock:InvokeModel"],
+                actions=["bedrock:InvokeModel", "bedrock:Converse"],
                 resources=["*"],
             )
         )
