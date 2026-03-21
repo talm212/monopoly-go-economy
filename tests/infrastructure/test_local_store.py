@@ -55,7 +55,7 @@ class TestSaveRun:
 
         # Verify a JSON file was created in the store directory
         store_dir = tmp_path / "history"
-        json_files = list(store_dir.glob("*.json"))
+        json_files = [f for f in store_dir.glob("*.json") if f.name != "_index.json"]
         assert len(json_files) == 1
 
         # Verify the file contains valid JSON with expected fields
@@ -76,7 +76,7 @@ class TestSaveRun:
         store.save_run(_make_run(total_points=300.0))
 
         store_dir = tmp_path / "history"
-        json_files = list(store_dir.glob("*.json"))
+        json_files = [f for f in store_dir.glob("*.json") if f.name != "_index.json"]
         assert len(json_files) == 3
 
 

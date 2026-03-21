@@ -213,25 +213,41 @@ class LootTableSimulator:
         For each player, tracks consecutive rolls without a rare+ item.
         When the counter reaches pity_threshold, the next roll is forced
         to a rare+ item (weighted by their relative weights).
+
+        Vectorized across players: iterates over rolls (columns) and
+        processes all players simultaneously using NumPy boolean masks.
+        This reduces Python loop iterations from O(players * rolls) to
+        O(rolls).
         """
         num_players, num_rolls = result_items.shape
 
         # Start scanning after guaranteed items (they don't count for pity)
         start_roll = guaranteed_count
 
-        for p in range(num_players):
-            pity_counter = 0
-            for r in range(start_roll, num_rolls):
-                if pity_counter >= pity_threshold:
-                    # Force a rare+ drop
-                    forced_item = rng.choice(rare_plus_indices, p=rare_plus_probs)
-                    result_items[p, r] = forced_item
-                    pity_counter = 0
-                elif is_rare_plus[result_items[p, r]]:
-                    # Got a rare+ naturally, reset counter
-                    pity_counter = 0
-                else:
-                    pity_counter += 1
+        # Per-player pity counter — vectorized across all players
+        pity_counters = np.zeros(num_players, dtype=np.int64)
+
+        for r in range(start_roll, num_rolls):
+            # Identify players that hit the pity threshold
+            pity_mask = pity_counters >= pity_threshold
+
+            if pity_mask.any():
+                # Force rare+ drops for pity-triggered players (all at once)
+                num_pity = int(pity_mask.sum())
+                forced_items = rng.choice(
+                    rare_plus_indices, size=num_pity, p=rare_plus_probs
+                )
+                result_items[pity_mask, r] = forced_items
+                pity_counters[pity_mask] = 0
+
+            # Check which non-pity players got a rare+ item naturally
+            non_pity_mask = ~pity_mask
+            got_rare = non_pity_mask & is_rare_plus[result_items[:, r]]
+            pity_counters[got_rare] = 0
+
+            # Increment counter for non-pity players who did NOT get rare+
+            no_rare = non_pity_mask & ~is_rare_plus[result_items[:, r]]
+            pity_counters[no_rare] += 1
 
     def _build_items_received_json(
         self,
@@ -240,13 +256,21 @@ class LootTableSimulator:
         num_players: int,
         num_rolls: int,
     ) -> list[str]:
-        """Build JSON strings of item counts per player."""
+        """Build JSON strings of item counts per player.
+
+        Uses np.bincount per row to eliminate the inner Python loop over
+        rolls, reducing from O(players * rolls) to O(players) Python
+        iterations with vectorized counting.
+        """
+        num_items = len(item_names)
         items_received_strs: list[str] = []
         for p in range(num_players):
-            counts: dict[str, int] = {}
-            for r in range(num_rolls):
-                name = item_names[result_items[p, r]]
-                counts[name] = counts.get(name, 0) + 1
+            bin_counts = np.bincount(result_items[p], minlength=num_items)
+            counts = {
+                item_names[i]: int(bin_counts[i])
+                for i in range(num_items)
+                if bin_counts[i] > 0
+            }
             items_received_strs.append(json.dumps(counts))
         return items_received_strs
 
