@@ -35,6 +35,11 @@ class NetworkStack(cdk.Stack):
                     cidr_mask=_SUBNET_CIDR_MASK,
                 ),
             ],
+            flow_logs={
+                "AllTraffic": ec2.FlowLogOptions(
+                    destination=ec2.FlowLogDestination.to_cloud_watch_logs(),
+                ),
+            },
         )
 
         self.ecr_repo = ecr.Repository(
@@ -42,6 +47,7 @@ class NetworkStack(cdk.Stack):
             "StreamlitRepo",
             removal_policy=cdk.RemovalPolicy.DESTROY,
             empty_on_delete=True,
+            image_scan_on_push=True,
             lifecycle_rules=[ecr.LifecycleRule(max_image_count=_ECR_MAX_IMAGE_COUNT)],
         )
 

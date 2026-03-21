@@ -4,7 +4,7 @@ Verifies:
 - AuthStack creates a Cognito UserPool
 - Self-sign-up is disabled (admin-only)
 - Email sign-in is configured
-- Password policy enforces minimum length, lowercase, and digits
+- Password policy enforces min length 12, lowercase, digits, uppercase, symbols
 - User pool domain is created
 - User pool has RETAIN removal policy
 - ComputeStack synthesizes without auth (backward compatible)
@@ -120,13 +120,25 @@ class TestAuthStackUserPool:
                     {
                         "PasswordPolicy": Match.object_like(
                             {
-                                "MinimumLength": 8,
+                                "MinimumLength": 12,
                                 "RequireLowercase": True,
                                 "RequireNumbers": True,
+                                "RequireUppercase": True,
+                                "RequireSymbols": True,
                             }
                         ),
                     }
                 ),
+            },
+        )
+
+    def test_mfa_optional(self) -> None:
+        template = _synth_auth_template()
+        template.has_resource_properties(
+            "AWS::Cognito::UserPool",
+            {
+                "MfaConfiguration": "OPTIONAL",
+                "EnabledMfas": ["SOFTWARE_TOKEN_MFA"],
             },
         )
 

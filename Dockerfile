@@ -29,8 +29,12 @@ COPY src/ ./src/
 COPY .streamlit/ ./.streamlit/
 
 # Streamlit server config for containerized environment
-RUN printf '[server]\nheadless = true\nport = 8501\naddress = "0.0.0.0"\nenableCORS = false\n\n[browser]\ngatherUsageStats = false\n' \
+RUN printf '[server]\nheadless = true\nport = 8501\naddress = "0.0.0.0"\nenableCORS = false\nenableXsrfProtection = true\n\n[browser]\ngatherUsageStats = false\n' \
     > /app/.streamlit/server.toml
+
+# Run as non-root user
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+USER appuser
 
 EXPOSE 8501
 
