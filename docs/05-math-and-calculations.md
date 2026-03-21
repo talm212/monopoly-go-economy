@@ -10,7 +10,7 @@ Complete reference for every formula, algorithm, and calculation in the simulati
 |------|-----------|
 | **Interaction** | A single coin-flip sequence triggered when a player lands on a marked tile. One player can have many interactions per simulation. |
 | **Flip** | One coin toss within an interaction. Result is heads (success) or tails (failure). |
-| **Depth** | How many consecutive heads a player achieves in one interaction (0 = first flip was tails, 5 = all 5 heads). |
+| **Depth** | How many consecutive heads a player achieves in one interaction. Ranges from 0 (failed on first flip) to `max_successes` (all flips were heads). There are 5 flips, but 6 possible outcomes (0 through 5 successes). |
 | **Success Chain** | The sequence of consecutive heads before the first tails. The chain stops immediately on the first failure. |
 | **`rolls_sink`** | Total rolls a player spent landing on coin-flip tiles. Higher value = more interactions. |
 | **`avg_multiplier`** | Player's average roll multiplier. Determines both how many interactions they get (`rolls_sink / avg_multiplier`) and the final point scaling (points × `avg_multiplier`). |
