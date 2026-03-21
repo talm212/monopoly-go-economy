@@ -32,8 +32,13 @@ def render_upload_widget(
     if uploaded_file is None:
         return None
 
+    _MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+
     try:
         raw_bytes = uploaded_file.getvalue()
+        if len(raw_bytes) > _MAX_UPLOAD_BYTES:
+            st.error("File too large. Maximum allowed size is 50 MB.")
+            return None
         df = pl.read_csv(io.BytesIO(raw_bytes))
     except Exception:
         logger.exception("Failed to parse uploaded file as CSV")

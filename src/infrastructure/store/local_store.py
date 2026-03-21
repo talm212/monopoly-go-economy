@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -25,6 +26,7 @@ import polars as pl
 logger = logging.getLogger(__name__)
 
 _INDEX_FILENAME = "_index.json"
+_UUID_HEX_RE = re.compile(r"^[0-9a-f]{32}$")
 
 
 class LocalSimulationStore:
@@ -102,6 +104,16 @@ class LocalSimulationStore:
     # Public API
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _validate_run_id(run_id: str) -> None:
+        """Validate that run_id is a 32-character lowercase hex string (UUID4 hex).
+
+        Raises:
+            ValueError: If run_id does not match the expected format.
+        """
+        if not _UUID_HEX_RE.match(run_id):
+            raise ValueError(f"Invalid run_id format: {run_id}")
+
     def save_run(
         self,
         run: dict[str, Any],
@@ -146,6 +158,7 @@ class LocalSimulationStore:
 
     def get_run(self, run_id: str) -> dict[str, Any]:
         """Get run by ID. Raises FileNotFoundError if not found."""
+        self._validate_run_id(run_id)
         file_path = self._store_dir / f"{run_id}.json"
         if not file_path.exists():
             raise FileNotFoundError(f"No simulation run found with id: {run_id}")
@@ -202,6 +215,7 @@ class LocalSimulationStore:
 
     def update_run(self, run_id: str, updates: dict[str, Any]) -> None:
         """Update fields on an existing run. Raises FileNotFoundError if not found."""
+        self._validate_run_id(run_id)
         file_path = self._store_dir / f"{run_id}.json"
         if not file_path.exists():
             raise FileNotFoundError(f"No simulation run found with id: {run_id}")
@@ -231,6 +245,7 @@ class LocalSimulationStore:
 
         Returns None if no Parquet file exists for this run.
         """
+        self._validate_run_id(run_id)
         parquet_path = self._store_dir / f"{run_id}.parquet"
         if not parquet_path.exists():
             return None
@@ -238,6 +253,7 @@ class LocalSimulationStore:
 
     def delete_run(self, run_id: str) -> None:
         """Delete a run by ID. Raises FileNotFoundError if not found."""
+        self._validate_run_id(run_id)
         file_path = self._store_dir / f"{run_id}.json"
         if not file_path.exists():
             raise FileNotFoundError(f"No simulation run found with id: {run_id}")
