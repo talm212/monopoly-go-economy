@@ -33,7 +33,8 @@ RUN printf '[server]\nheadless = true\nport = 8501\naddress = "0.0.0.0"\nenableC
     > /app/.streamlit/server.toml
 
 # Run as non-root user
-RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser && \
+    mkdir -p /app/.simulation_history && chown appuser:appgroup /app/.simulation_history
 USER appuser
 
 EXPOSE 8501
