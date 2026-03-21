@@ -2,6 +2,8 @@
 
 Generic UI components for rendering AI-generated insights with severity
 badges. Works for any feature's AI insights (coin flip, loot tables, etc.).
+When an insight includes a sweep suggestion, renders a button that
+populates the Parameter Sweep section with the recommended values.
 """
 
 from __future__ import annotations
@@ -43,8 +45,13 @@ def render_severity_badge(severity: Severity) -> str:
     )
 
 
-def render_insight_card(insight: Insight) -> None:
-    """Render a single insight as a styled card."""
+def render_insight_card(insight: Insight, card_index: int = 0) -> None:
+    """Render a single insight as a styled card.
+
+    Args:
+        insight: The Insight to render.
+        card_index: Index for unique widget keys when rendering multiple cards.
+    """
     badge_html = render_severity_badge(insight.severity)
 
     st.markdown(badge_html, unsafe_allow_html=True)
@@ -58,5 +65,38 @@ def render_insight_card(insight: Insight) -> None:
                 for name, value in insight.metric_references.items()
             ]
             st.table(rows)
+
+    # Sweep suggestion button
+    if insight.sweep_suggestion is not None:
+        sweep = insight.sweep_suggestion
+        sweep_label = (
+            f"Sweep {sweep.parameter}: "
+            f"{sweep.start} \u2192 {sweep.end} ({sweep.steps} steps)"
+        )
+        if sweep.reason:
+            st.caption(f"Suggested sweep: {sweep.reason}")
+
+        if st.button(
+            sweep_label,
+            key=f"insight_sweep_{card_index}",
+            use_container_width=True,
+            help=(
+                f"Pre-fill the Parameter Sweep section with: "
+                f"{sweep.parameter} from {sweep.start} to {sweep.end} "
+                f"in {sweep.steps} steps. Scroll down to Parameter Sweep to run it."
+            ),
+        ):
+            st.session_state["sweep_prefill"] = {
+                "parameter": sweep.parameter,
+                "start": sweep.start,
+                "end": sweep.end,
+                "steps": sweep.steps,
+            }
+            st.toast(
+                f"Sweep pre-filled: {sweep.parameter} "
+                f"{sweep.start} \u2192 {sweep.end}. "
+                f"Scroll down to Parameter Sweep to run it."
+            )
+            st.rerun()
 
     st.markdown("---")

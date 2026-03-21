@@ -269,8 +269,8 @@ def _render_insights_tab(
     cached_insights: list[Insight] | None = st.session_state.get("ai_insights")
     if cached_insights:
         st.caption(f"{len(cached_insights)} insight(s) generated")
-        for insight in cached_insights:
-            render_insight_card(insight)
+        for idx, insight in enumerate(cached_insights):
+            render_insight_card(insight, card_index=idx)
     elif not generate_clicked:
         st.info("Click **Generate Insights** to analyze your simulation results with AI.")
 

@@ -104,11 +104,27 @@ def render_parameter_sweep(
         max_successes = base_config.max_successes
         sweepable = _build_sweepable_params(max_successes)
 
+        # --- Check for AI-suggested prefill ---
+        prefill: dict[str, Any] | None = st.session_state.pop("sweep_prefill", None)
+        if prefill is not None:
+            prefill_param = prefill.get("parameter", "")
+            if prefill_param in sweepable:
+                st.success(
+                    f"Pre-filled from AI insight: **{prefill_param}** "
+                    f"{prefill['start']} \u2192 {prefill['end']} "
+                    f"({prefill['steps']} steps)"
+                )
+
         # --- Parameter selector ---
         param_display_names = list(sweepable.keys())
+        default_param_idx = 0
+        if prefill and prefill.get("parameter") in param_display_names:
+            default_param_idx = param_display_names.index(prefill["parameter"])
+
         selected_display = st.selectbox(
             "Parameter to sweep",
             options=param_display_names,
+            index=default_param_idx,
             key="sweep_param_select",
             help="Choose which configuration parameter to vary across the sweep.",
         )
@@ -119,6 +135,15 @@ def render_parameter_sweep(
         param_meta = sweepable[selected_display]
         param_name = param_meta["param_name"]
 
+        # Use prefill values if available and matching the selected param
+        _prefill_start = param_meta["default_start"]
+        _prefill_end = param_meta["default_end"]
+        _prefill_steps = 5
+        if prefill and prefill.get("parameter") == selected_display:
+            _prefill_start = float(prefill["start"])
+            _prefill_end = float(prefill["end"])
+            _prefill_steps = int(prefill["steps"])
+
         # --- Range inputs ---
         range_cols = st.columns(3)
         with range_cols[0]:
@@ -126,7 +151,7 @@ def render_parameter_sweep(
                 "Start value",
                 min_value=param_meta["min"],
                 max_value=param_meta["max"],
-                value=param_meta["default_start"],
+                value=_prefill_start,
                 format=param_meta["format"],
                 key="sweep_start",
                 help="Starting value for the parameter sweep range.",
@@ -136,7 +161,7 @@ def render_parameter_sweep(
                 "End value",
                 min_value=param_meta["min"],
                 max_value=param_meta["max"],
-                value=param_meta["default_end"],
+                value=_prefill_end,
                 format=param_meta["format"],
                 key="sweep_end",
                 help="Ending value for the parameter sweep range.",
@@ -146,7 +171,7 @@ def render_parameter_sweep(
                 "Number of steps",
                 min_value=2,
                 max_value=50,
-                value=5,
+                value=_prefill_steps,
                 step=1,
                 key="sweep_steps",
                 help="Number of evenly spaced values between start and end.",

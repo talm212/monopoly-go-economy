@@ -12,7 +12,7 @@ import logging
 from typing import Any
 
 from src.application.llm_utils import strip_markdown_fences
-from src.domain.models.insight import Insight, Severity
+from src.domain.models.insight import Insight, Severity, SweepSuggestion
 from src.domain.protocols import LLMClient
 
 logger = logging.getLogger(__name__)
@@ -46,12 +46,28 @@ tails. Points are cumulative: reaching depth 3 earns points_success_1 + points_s
 - total_points: Sum of all players' total_points (economy-wide inflation indicator).
 - pct_above_threshold: Fraction of players whose total_points > reward_threshold.
 
+## Parameter Sweep (available in the dashboard)
+The user has a Parameter Sweep tool that can sweep any config parameter across a
+range of values and chart KPI impact. Sweepable parameters include:
+- p_success_1..N (probability at each depth, range 0.0–1.0)
+- points_success_1..N (points at each depth)
+- reward_threshold (KPI reporting cutoff)
+
 ## What to Analyze
 Each insight must have:
 - "finding": What you observed (be specific with numbers)
 - "severity": "info", "warning", or "critical"
 - "recommendation": Actionable suggestion for the economy team
 - "metric_references": Dict of metric_name: value that support your finding
+- "sweep_suggestion": (OPTIONAL, include only when a sweep would help) Object with:
+  - "parameter": the parameter display name (e.g. "p_success_1", "reward_threshold")
+  - "start": sweep start value (number)
+  - "end": sweep end value (number)
+  - "steps": number of steps (default 5)
+  - "reason": brief explanation of why this sweep is useful
+
+Only include sweep_suggestion when exploring a range would genuinely help the user
+make a decision. Not every insight needs one — skip it for purely informational findings.
 
 Focus on:
 1. Distribution anomalies (too many/few players at extreme success depths)
@@ -177,9 +193,25 @@ class InsightsAnalyst:
         except (ValueError, TypeError):
             refs = {}
 
+        # Parse optional sweep suggestion
+        sweep: SweepSuggestion | None = None
+        sweep_raw = item.get("sweep_suggestion")
+        if isinstance(sweep_raw, dict):
+            try:
+                sweep = SweepSuggestion(
+                    parameter=str(sweep_raw["parameter"]),
+                    start=float(sweep_raw["start"]),
+                    end=float(sweep_raw["end"]),
+                    steps=int(sweep_raw.get("steps", 5)),
+                    reason=str(sweep_raw.get("reason", "")),
+                )
+            except (KeyError, ValueError, TypeError):
+                logger.warning("Skipping malformed sweep_suggestion")
+
         return Insight(
             finding=str(finding),
             severity=severity,
             recommendation=str(recommendation),
             metric_references=refs,
+            sweep_suggestion=sweep,
         )
