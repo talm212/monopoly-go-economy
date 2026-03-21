@@ -311,6 +311,59 @@ class TestCoinFlipSimulatorEdgeCases:
         assert result.success_counts.get(0, 0) == 100
         assert result.total_points == 0.0
 
+    def test_all_zero_probabilities(self) -> None:
+        """Config with probabilities=(0.0, 0.0, 0.0): all interactions end at depth 0."""
+        players = pl.DataFrame(
+            {
+                "user_id": list(range(1, 51)),
+                "rolls_sink": [200] * 50,
+                "avg_multiplier": [10] * 50,
+                "about_to_churn": [False] * 50,
+            }
+        )
+        config = CoinFlipConfig(
+            max_successes=3,
+            probabilities=(0.0, 0.0, 0.0),
+            point_values=(1.0, 2.0, 4.0),
+        )
+        sim = CoinFlipSimulator()
+        result = sim.simulate(players, config, seed=42)
+
+        # Every interaction should end at depth 0 (first flip fails)
+        total_interactions = result.total_interactions
+        assert result.success_counts.get(0, 0) == total_interactions
+        assert result.success_counts.get(1, 0) == 0
+        assert result.success_counts.get(2, 0) == 0
+        assert result.success_counts.get(3, 0) == 0
+        assert result.total_points == 0.0
+
+    def test_all_one_probabilities(self) -> None:
+        """Config with probabilities=(1.0, 1.0, 1.0): all interactions reach max depth."""
+        players = pl.DataFrame(
+            {
+                "user_id": list(range(1, 51)),
+                "rolls_sink": [200] * 50,
+                "avg_multiplier": [10] * 50,
+                "about_to_churn": [False] * 50,
+            }
+        )
+        config = CoinFlipConfig(
+            max_successes=3,
+            probabilities=(1.0, 1.0, 1.0),
+            point_values=(1.0, 2.0, 4.0),
+        )
+        sim = CoinFlipSimulator()
+        result = sim.simulate(players, config, seed=42)
+
+        # Every interaction should reach max depth (3 successes)
+        total_interactions = result.total_interactions
+        assert result.success_counts.get(3, 0) == total_interactions
+        assert result.success_counts.get(0, 0) == 0
+        assert result.success_counts.get(1, 0) == 0
+        assert result.success_counts.get(2, 0) == 0
+        # Each interaction earns 1+2+4 = 7 points * avg_multiplier=10
+        assert result.total_points == pytest.approx(7.0 * 10 * total_interactions)
+
 
 # ---------------------------------------------------------------------------
 # Result methods
