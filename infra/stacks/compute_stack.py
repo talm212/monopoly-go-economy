@@ -20,6 +20,7 @@ from aws_cdk import (
     aws_ecs as ecs,
     aws_ecs_patterns as ecs_patterns,
     aws_dynamodb as dynamodb,
+    aws_iam as iam,
     aws_s3 as s3,
 )
 from constructs import Construct
@@ -106,9 +107,16 @@ class ComputeStack(cdk.Stack):
         )
 
         # Grant the task role access to data resources
-        data_bucket.grant_read_write(self.fargate_service.task_definition.task_role)
-        history_table.grant_read_write_data(
-            self.fargate_service.task_definition.task_role
+        task_role = self.fargate_service.task_definition.task_role
+        data_bucket.grant_read_write(task_role)
+        history_table.grant_read_write_data(task_role)
+
+        # Grant Bedrock invoke access for AI features (insights, chat, optimizer)
+        task_role.add_to_principal_policy(
+            iam.PolicyStatement(
+                actions=["bedrock:InvokeModel"],
+                resources=["*"],
+            )
         )
 
         # Optional Cognito authentication on ALB listener
