@@ -314,11 +314,14 @@ class CoinFlipResult:
                 }
             else:
                 pts = seg_df["total_points"]
+                raw_mean = pts.mean()
+                raw_median = pts.median()
+                raw_sum = pts.sum()
                 segments[label] = {
                     "Player Count": float(seg_df.height),
-                    "Avg Points / Player": float(pts.mean() or 0.0),
-                    "Median Points / Player": float(pts.median() or 0.0),
-                    "Total Points": float(pts.sum() or 0.0),
+                    "Avg Points / Player": float(raw_mean) if raw_mean is not None else 0.0,
+                    "Median Points / Player": float(raw_median) if raw_median is not None else 0.0,
+                    "Total Points": float(raw_sum) if raw_sum is not None else 0.0,
                 }
         return segments
 

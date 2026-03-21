@@ -7,6 +7,7 @@ Supports both fresh simulation results and loaded summaries from history.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import Any
 
 import polars as pl
@@ -23,7 +24,7 @@ from src.domain.models.optimization import (
     OptimizationStep,
     OptimizationTarget,
 )
-from src.domain.protocols import FeatureAnalysisContext
+from src.domain.protocols import FeatureAnalysisContext, LLMClient
 from src.infrastructure.store.local_store import LocalSimulationStore
 from src.domain.errors import InvalidConfigError
 from src.ui.async_helper import run_async
@@ -114,7 +115,7 @@ def render_ai_analysis(
     sim_result: CoinFlipResult | None,
     loaded_summary: dict[str, Any] | None,
     loaded_distribution: dict[str, Any] | None,
-    get_llm_client: Any,
+    get_llm_client: Callable[[], LLMClient],
     use_case: RunSimulationUseCase,
     store: LocalSimulationStore,
 ) -> None:
@@ -212,7 +213,7 @@ def _render_insights_tab(
     distribution: dict[str, Any],
     config_dict: dict[str, Any],
     kpi_metrics: dict[str, Any],
-    get_llm_client: Any,
+    get_llm_client: Callable[[], LLMClient],
     feature_name: str = "coin flip",
 ) -> None:
     """Render the Insights tab."""
@@ -281,7 +282,7 @@ def _render_chat_tab(
     distribution: dict[str, Any],
     config_dict: dict[str, Any],
     kpi_metrics: dict[str, Any],
-    get_llm_client: Any,
+    get_llm_client: Callable[[], LLMClient],
 ) -> None:
     """Render the Ask a Question (Chat) tab."""
     st.caption(
@@ -309,7 +310,7 @@ def _render_chat_tab(
 def _render_optimizer_tab(
     use_case: RunSimulationUseCase,
     store: LocalSimulationStore,
-    get_llm_client: Any,
+    get_llm_client: Callable[[], LLMClient],
 ) -> None:
     """Render the Optimizer tab."""
     st.caption(

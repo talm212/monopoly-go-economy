@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
 
 import numpy as np
 import polars as pl
@@ -41,7 +40,7 @@ class LootTableSimulator:
     def simulate(
         self,
         players: pl.DataFrame,
-        config: LootTableConfig | Any,
+        config: LootTableConfig,
         seed: int | None = None,
     ) -> LootTableResult:
         """Run the loot table simulation for all players.

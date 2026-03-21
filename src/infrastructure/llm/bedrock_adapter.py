@@ -80,7 +80,7 @@ class BedrockAdapter:
         text_blocks = [b for b in content if isinstance(b, dict) and "text" in b]
         if not text_blocks:
             raise ValueError("LLM returned no text content")
-        return text_blocks[0]["text"]
+        return str(text_blocks[0]["text"])
 
     async def _complete_converse(self, prompt: str, system: str) -> str:
         """Invoke a non-Anthropic model using the Bedrock Converse API."""
@@ -106,4 +106,4 @@ class BedrockAdapter:
         text_blocks = [b["text"] for b in content if "text" in b]
         if not text_blocks:
             raise ValueError("LLM returned no text content")
-        return text_blocks[0]
+        return str(text_blocks[0])

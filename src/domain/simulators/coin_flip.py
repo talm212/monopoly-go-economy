@@ -8,7 +8,6 @@ over individual players or interactions.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import numpy as np
 import polars as pl
@@ -35,7 +34,7 @@ class CoinFlipSimulator:
     def simulate(
         self,
         players: pl.DataFrame,
-        config: CoinFlipConfig | Any,
+        config: CoinFlipConfig,
         seed: int | None = None,
     ) -> CoinFlipResult:
         """Run the coin-flip simulation for all players.

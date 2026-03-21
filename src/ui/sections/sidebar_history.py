@@ -143,7 +143,7 @@ def render_sidebar_history(
                                     st.session_state["config_uploaded"] = True
                                     # Purge stale config editor widget keys
                                     for _k in list(st.session_state.keys()):
-                                        if _k.startswith("cf_cfg_"):
+                                        if isinstance(_k, str) and _k.startswith("cf_cfg_"):
                                             del st.session_state[_k]
 
                                 # Try to load full player results (for 3-tab view)
