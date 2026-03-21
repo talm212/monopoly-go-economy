@@ -14,6 +14,7 @@
 - [Roadmap](#roadmap-whats-next) — 5 phases from new simulators to team collaboration
 - [Quick Start](#quick-start) — Install, run, deploy
 - [Project Structure](#project-structure) — Source layout
+- [How `about_to_churn` Affects Probabilities](#how-about_to_churn-affects-probabilities) — Churn boost mechanic explained
 - [Assumptions](#assumptions-coin-flip) — Coin Flip domain rules
 - [Documentation](#documentation) — Deep dives, design logs
 
@@ -281,6 +282,21 @@ infra/                     # AWS CDK (5 stacks: Network, Data, Auth, Compute, Pi
 design-logs/               # 22 architecture decision records
 docs/                      # Deep dive documentation (EN + HE)
 ```
+
+---
+
+## How `about_to_churn` Affects Probabilities
+
+Players flagged as `about_to_churn = true` (from a churn-prediction ML model) receive a **1.3x multiplier** on every flip probability in the chain, giving them better odds to keep them engaged:
+
+```
+Normal player:      p_success_1 = 0.60, p_success_2 = 0.50, p_success_3 = 0.40
+Churn-risk player:  p_success_1 = 0.78, p_success_2 = 0.65, p_success_3 = 0.52
+```
+
+The boost is **capped at 1.0** — a 90% probability boosted by 1.3x becomes 100%, not 117%. This prevents impossible probabilities while still giving at-risk players meaningfully better outcomes.
+
+The multiplier is configurable via CLI (`--churn-boost`, default 1.3) and the dashboard config editor.
 
 ---
 
