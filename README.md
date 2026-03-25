@@ -338,6 +338,7 @@ The multiplier is configurable via CLI (`--churn-boost`, default 1.3) and the da
 2. **Cumulative points**: Depth 3 earns `points[0] + points[1] + points[2]`, multiplied by `avg_multiplier`
 3. **Churn boost capped at 1.0**: `boosted = min(probability * 1.3, 1.0)`
 4. **Default churn**: Missing `about_to_churn` column → all players default to `false`
+5. **Positive `avg_multiplier` required**: Players with `avg_multiplier <= 0` are rejected (division by zero). The simulation fails with a clear error message listing how many invalid rows were found. The PRD does not specify how to handle this — we chose strict validation over silent filtering to avoid producing misleading results from incomplete data.
 
 ---
 
