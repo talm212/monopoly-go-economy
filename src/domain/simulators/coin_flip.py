@@ -16,6 +16,8 @@ from src.domain.models.coin_flip import CoinFlipConfig, CoinFlipResult
 
 logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
+
 # Required columns in the player DataFrame
 _REQUIRED_COLUMNS = ("user_id", "rolls_sink", "avg_multiplier", "about_to_churn")
 
@@ -54,7 +56,16 @@ class CoinFlipSimulator:
             raise ValueError(f"Invalid player data: {'; '.join(errors)}")
         rng = np.random.default_rng(seed)
 
-        # 1. Compute interactions per player: rolls_sink // avg_multiplier
+        # 1. Filter out players with avg_multiplier <= 0 (division by zero)
+        bad_rows = players.filter(pl.col("avg_multiplier") <= 0).height
+        if bad_rows > 0:
+            logger.warning(
+                "Filtered %d players with avg_multiplier <= 0 (cannot compute interactions)",
+                bad_rows,
+            )
+            players = players.filter(pl.col("avg_multiplier") > 0)
+
+        # 2. Compute interactions per player: rolls_sink // avg_multiplier
         players_with_interactions = players.with_columns(
             (pl.col("rolls_sink") // pl.col("avg_multiplier")).cast(pl.Int64).alias("interactions")
         )
@@ -170,13 +181,8 @@ class CoinFlipSimulator:
         if errors:
             return errors  # Can't validate values if columns are missing
 
-        # avg_multiplier must be positive (non-zero to avoid division by zero)
-        if "avg_multiplier" in players.columns:
-            non_positive = players.filter(pl.col("avg_multiplier") <= 0).height
-            if non_positive > 0:
-                errors.append(
-                    f"avg_multiplier must be positive (found {non_positive} rows with value <= 0)"
-                )
+        # Note: avg_multiplier <= 0 rows are filtered with a warning in simulate(),
+        # not rejected here, so the simulation can proceed with valid rows.
         return errors
 
     # ------------------------------------------------------------------

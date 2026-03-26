@@ -442,8 +442,19 @@ if run_clicked and has_players and has_config:
     config_run: CoinFlipConfig = st.session_state["config"]
 
     try:
+        # Check for bad rows before running (to show warning after)
+        _bad_rows = player_data_run.filter(pl.col("avg_multiplier") <= 0).height
+        _total_rows = player_data_run.height
+
         with st.spinner("Running simulation..."):
             result = _use_case.execute_from_dataframe(player_data_run, config_run, seed=seed)
+
+        if _bad_rows > 0:
+            st.warning(
+                f"Filtered {_bad_rows:,} of {_total_rows:,} players with "
+                f"`avg_multiplier <= 0` (cannot compute interactions). "
+                f"Simulation ran on the remaining {_total_rows - _bad_rows:,} players."
+            )
 
         logger.info("[RUN] Simulation complete — interactions=%d, points=%.0f, above_threshold=%d",
                     result.total_interactions, result.total_points, result.players_above_threshold)

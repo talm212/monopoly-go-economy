@@ -477,19 +477,27 @@ class TestCoinFlipSimulatorProtocol:
 class TestCoinFlipSimulatorValidation:
     """Verify input validation catches bad DataFrames."""
 
-    def test_zero_avg_multiplier_returns_validation_error(self) -> None:
+    def test_zero_avg_multiplier_filtered_with_warning(
+        self,
+        sample_config_dict: dict[str, Any],
+    ) -> None:
+        """Players with avg_multiplier <= 0 are filtered out, not rejected."""
         players = pl.DataFrame(
             {
-                "user_id": [1],
-                "rolls_sink": [100],
-                "avg_multiplier": [0],
-                "about_to_churn": [False],
+                "user_id": [1, 2],
+                "rolls_sink": [100, 200],
+                "avg_multiplier": [0, 10],
+                "about_to_churn": [False, False],
             }
         )
         simulator = CoinFlipSimulator()
+        # validate_input no longer rejects avg_multiplier <= 0
         errors = simulator.validate_input(players)
-        assert len(errors) > 0
-        assert "avg_multiplier" in errors[0]
+        assert errors == []
+        # simulate filters bad rows and runs on the rest
+        config = _make_config(sample_config_dict)
+        result = simulator.simulate(players, config, seed=42)
+        assert result.player_results.height == 1  # only player 2
 
     def test_valid_input_returns_no_errors(
         self,
