@@ -384,6 +384,15 @@ _has_loaded_summary = st.session_state.get("loaded_run_summary") is not None
 _has_sim_result = "simulation_result" in st.session_state
 if has_players and has_config:
     st.success("Ready to simulate")
+    _bad_multiplier_count = st.session_state["player_data"].filter(
+        pl.col("avg_multiplier") <= 0
+    ).height
+    if _bad_multiplier_count > 0:
+        _total_count = st.session_state["player_data"].height
+        st.warning(
+            f"Found {_bad_multiplier_count:,} of {_total_count:,} players with "
+            f"`avg_multiplier <= 0` — these will be filtered out during simulation."
+        )
 elif _has_loaded_summary and not _has_sim_result and has_config and not has_players:
     st.warning("Upload player data to re-run with this config")
 elif not has_players and not has_config:
